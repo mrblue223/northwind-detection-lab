@@ -182,3 +182,106 @@ resource "azurerm_consumption_budget_resource_group" "lab" {
     ignore_changes = [time_period] # avoid perpetual diff on start_date
   }
 }
+
+# ---------------------------------------------------------------------------
+# Cloud governance hardening
+# ---------------------------------------------------------------------------
+
+# CanNotDelete lock on the state resource group so the Terraform backend (the
+# state container and the storage account that holds it) can't be removed by
+# accident or by a rogue/compromised principal - this is the one thing in the
+# lab that must survive every teardown (see risk-register.md R6).
+#
+# rg-${var.project}-lab is DELIBERATELY NOT locked: it has to stay destroyable
+# via `make down` / `make destroy`, which is the entire cost model of this lab
+# (see COST_NOTES.md and the README). Locking it would defeat that. Removing
+# this lock is itself an Administrative event that the activity-log alerts below
+# would surface.
+resource "azurerm_management_lock" "tfstate_rg" {
+  name       = "lock-${var.project}-tfstate-nodelete"
+  scope      = azurerm_resource_group.tfstate.id
+  lock_level = "CanNotDelete"
+  notes      = "Protects the Terraform state RG from deletion. rg-${var.project}-lab is intentionally left unlocked so it stays destroyable."
+}
+
+# Microsoft Defender for Cloud: keep the subscription on the FREE tier. The
+# foundational CSPM (secure score + security recommendations) is free and on by
+# default; declaring it as code codifies that no PAID Defender plan is silently
+# enabled (Defender for Servers/Storage/Key Vault bill per resource and would
+# breach the $20/mo ceiling - see COST_NOTES.md). The portal calls this
+# "Defender for Cloud"; the Terraform resource kept the older security_center
+# name (verified against the azurerm ~> 3.110 provider schema).
+resource "azurerm_security_center_subscription_pricing" "free" {
+  # Checkov wants the paid Standard tier, but Defender for Servers Plan 2 bills
+  # ~$15/VM/month (~$60/mo across DC01/WS01/FS01/SCAN01) - far over the $20/mo
+  # ceiling. The free foundational CSPM (secure score + recommendations) is the
+  # deliberate choice here; see grc/risk-register.md R16.
+  #checkov:skip=CKV_AZURE_19:Standard tier = paid Defender plans (~$60/mo here); free foundational CSPM chosen under the $20/mo ceiling - R16
+  #checkov:skip=CKV_AZURE_55:Defender for Servers (Standard) bills ~$15/VM/mo; out of budget, free CSPM chosen - R16
+  tier          = "Free"
+  resource_type = "VirtualMachines"
+}
+
+# Activity Log alerts -> routed to the SAME action group as the budget alert so
+# there is a single notification channel. Both lab resource groups are in scope.
+# Azure Activity Log alerts match a specific operationName (there is no wildcard
+# "any resource deletion"), so the deletion alert targets resource-group
+# deletion - the catastrophic case, and the event that disabling the
+# CanNotDelete lock above would immediately precede.
+locals {
+  governed_rg_scopes = [
+    azurerm_resource_group.lab.id,
+    azurerm_resource_group.tfstate.id,
+  ]
+}
+
+resource "azurerm_monitor_activity_log_alert" "resource_group_deletion" {
+  name                = "ala-${var.project}-rg-deletion"
+  resource_group_name = azurerm_resource_group.lab.name
+  location            = "global"
+  scopes              = local.governed_rg_scopes
+  description         = "A resource group in the lab was deleted."
+
+  criteria {
+    category       = "Administrative"
+    operation_name = "Microsoft.Resources/subscriptions/resourceGroups/delete"
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.budget_alert.id
+  }
+}
+
+resource "azurerm_monitor_activity_log_alert" "role_assignment_change" {
+  name                = "ala-${var.project}-role-assignment"
+  resource_group_name = azurerm_resource_group.lab.name
+  location            = "global"
+  scopes              = local.governed_rg_scopes
+  description         = "A role assignment was created or updated in a lab resource group."
+
+  criteria {
+    category       = "Administrative"
+    operation_name = "Microsoft.Authorization/roleAssignments/write"
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.budget_alert.id
+  }
+}
+
+resource "azurerm_monitor_activity_log_alert" "policy_assignment_change" {
+  name                = "ala-${var.project}-policy-assignment"
+  resource_group_name = azurerm_resource_group.lab.name
+  location            = "global"
+  scopes              = local.governed_rg_scopes
+  description         = "A policy assignment was created or updated in a lab resource group."
+
+  criteria {
+    category       = "Administrative"
+    operation_name = "Microsoft.Authorization/policyAssignments/write"
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.budget_alert.id
+  }
+}

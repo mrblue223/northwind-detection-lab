@@ -11,15 +11,15 @@ employer - the underlying work doesn't change, only the label.
 |---|---|---|
 | 1.1 | Establish and maintain an inventory of enterprise assets | `data/users.csv`, Terraform state as the single source of truth for every VM/subnet/resource |
 | 3.3 | Configure data access control lists | Twingate per-resource access policies (admin vs. red-team groups); NSGs scoped per subnet |
-| 4.1 | Establish and maintain a secure configuration process | All infra defined in Terraform, reviewed via PR, scanned by Checkov/TFLint before merge |
+| 4.1 | Establish and maintain a secure configuration process | All infra defined in Terraform, reviewed via PR, scanned by Checkov/TFLint before merge; Microsoft Defender for Cloud (free tier) secure score + recommendations as continuous posture assessment; `azurerm_management_lock` (CanNotDelete) protects the Terraform state RG - the secure baseline - from destructive change (see `risk-register.md` R6/R16) |
 | 4.4 | Implement and manage a firewall on servers | NSGs on both subnets, default-deny with explicit, commented exceptions |
 | 5.1 | Establish and maintain an inventory of accounts | `data/users.csv` roster, mirrored into both AD (Ansible) and Entra ID (Terraform) |
 | 5.4 | Restrict administrator privileges to dedicated admin accounts | Twingate `admins` group is separate from `redteam` group; domain admin credentials isolated in Key Vault, never in a playbook or repo file |
 | 6.1 | Establish an access granting process | Twingate Resources defined declaratively per host/protocol in `15-access/main.tf` - access is a Terraform diff, not a manual console click |
 | 6.2 | Establish an access revoking process | `make down` destroys the compute stack entirely; red-team toggles default to `false` and are reverted after each test (see `risk-register.md` R3) |
-| 8.2 | Collect audit logs | Windows Security Event auditing (`audit_policy` role), Sysmon, Entra sign-in/audit logs, all shipped to Log Analytics |
+| 8.2 | Collect audit logs | Windows Security Event auditing (`audit_policy` role), Sysmon, Entra sign-in/audit logs, all shipped to Log Analytics; Azure **Activity Log** (control-plane audit trail) is retained by the platform |
 | 8.5 | Collect detailed audit logs | PowerShell Script Block Logging, command-line auditing enabled in `audit_policy` |
-| 8.11 | Conduct audit log reviews | `coverage.md` process: replay attacks, review what fired, document gaps |
+| 8.11 | Conduct audit log reviews | `coverage.md` process: replay attacks, review what fired, document gaps; Azure **Activity Log alerts** (`00-foundation`) proactively notify on control-plane admin events - role-assignment changes, policy-assignment changes, and resource-group deletion - routed to the unified budget action group |
 | 10.1 | Deploy and maintain anti-malware software | Out of scope for v1 - documented gap, not claimed |
 | 12.2 | Establish and maintain a secure network architecture | `mgmt`/`corp` subnet segmentation, Twingate ZTNA replacing flat network access |
 | 12.6 | Use of secure network management and communication protocols | WinRM over HTTPS (5986), no plaintext RDP exposed to anything but the ZTNA path |
