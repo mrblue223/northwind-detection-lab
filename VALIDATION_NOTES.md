@@ -5,6 +5,29 @@ against live provider docs/accounts before a real `terraform apply`. Written
 this way on purpose - a repo that claims to be fully verified without a real
 `terraform init`/`plan` against live credentials would be overstating it.
 
+## Hardening pass (Checkov fixes before merge)
+
+Per the standing security principle in `CLAUDE.md`, free best-practice fixes were
+applied rather than suppressed:
+
+- **Connector VM now uses SSH-key auth** (`tls_private_key` + `admin_ssh_key`,
+  `disable_password_authentication = true`, private key in Key Vault), matching
+  the SCAN01 pattern - eliminates CKV_AZURE_149/178/1 (the old R13 is retired).
+- **tfstate backend now authenticates with Azure AD**: `use_azuread_auth = true`
+  on the backend block and every `terraform_remote_state` data source across all
+  stacks, and `shared_access_key_enabled = false` on the storage account
+  (CKV2_AZURE_40). **Operator/CI prerequisite**: the principal running Terraform
+  needs the **Storage Blob Data Contributor** role on the `stnorthwindtfstate`
+  account (RBAC), not just a management-plane role - set this up alongside the
+  Azure OIDC federation. `terraform init` will fail to read state without it.
+- **Key Vault secrets carry a 1-year expiry** via a `time_offset` resource
+  (CKV_AZURE_41), resetting on each destroy/rebuild.
+
+Remaining Checkov suppressions are documented with cost/lifecycle rationale in
+`grc/risk-register.md` R11/R12/R14/R15 (private endpoints ~$8/mo each, GRS
+premium, purge-protection lifecycle, required monitoring extensions, host
+encryption). None are suppressed for mere convenience.
+
 ## CI green-up pass (ansible-lint / TFLint findings)
 
 This round got the GitHub CI pipeline passing. Nothing was suppressed - every

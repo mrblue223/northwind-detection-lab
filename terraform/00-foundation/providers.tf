@@ -10,6 +10,10 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.6"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.12"
+    }
   }
 
   # Bootstrap note: this backend block points at the storage account THIS stack
@@ -23,6 +27,7 @@ terraform {
     storage_account_name = "stnorthwindtfstate" # must be globally unique - change this
     container_name       = "tfstate"
     key                  = "00-foundation.tfstate"
+    use_azuread_auth     = true
   }
 }
 

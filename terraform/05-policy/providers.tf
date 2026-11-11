@@ -12,6 +12,7 @@ terraform {
     storage_account_name = "stnorthwindtfstate"
     container_name       = "tfstate"
     key                  = "05-policy.tfstate"
+    use_azuread_auth     = true
   }
 }
 
@@ -26,5 +27,6 @@ data "terraform_remote_state" "foundation" {
     storage_account_name = "stnorthwindtfstate"
     container_name       = "tfstate"
     key                  = "00-foundation.tfstate"
+    use_azuread_auth     = true
   }
 }

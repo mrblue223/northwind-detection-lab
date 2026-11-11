@@ -126,12 +126,16 @@ resource "tls_private_key" "scan01" {
   rsa_bits  = 4096
 }
 
+resource "time_offset" "secret_expiry" {
+  offset_days = 365 # creation + 1 year; resets on rebuild (Checkov CKV_AZURE_41)
+}
+
 resource "azurerm_key_vault_secret" "scan01_ssh_private_key" {
-  #checkov:skip=CKV_AZURE_41:Lab secrets are regenerated on each destroy/rebuild; a hard expiry date would risk silent mid-lab auth failures with no security gain - grc/risk-register.md R11
-  name         = "scan01-ssh-private-key"
-  value        = tls_private_key.scan01.private_key_pem
-  key_vault_id = data.terraform_remote_state.foundation.outputs.key_vault_id
-  content_type = "application/x-pem-file" # Checkov CKV_AZURE_114
+  name            = "scan01-ssh-private-key"
+  value           = tls_private_key.scan01.private_key_pem
+  key_vault_id    = data.terraform_remote_state.foundation.outputs.key_vault_id
+  content_type    = "application/x-pem-file"          # Checkov CKV_AZURE_114
+  expiration_date = time_offset.secret_expiry.rfc3339 # Checkov CKV_AZURE_41
 }
 
 resource "azurerm_network_interface" "scan01" {

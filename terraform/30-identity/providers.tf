@@ -16,6 +16,7 @@ terraform {
     storage_account_name = "stnorthwindtfstate"
     container_name       = "tfstate"
     key                  = "30-identity.tfstate"
+    use_azuread_auth     = true
   }
 }
 

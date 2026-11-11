@@ -15,9 +15,13 @@ terraform {
       # bumping this constraint - verify against current provider docs first.
       version = "~> 3.0"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.6"
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.12"
     }
   }
 
@@ -26,6 +30,7 @@ terraform {
     storage_account_name = "stnorthwindtfstate" # must match 00-foundation
     container_name       = "tfstate"
     key                  = "15-access.tfstate"
+    use_azuread_auth     = true
   }
 }
 
@@ -47,6 +52,7 @@ data "terraform_remote_state" "foundation" {
     storage_account_name = "stnorthwindtfstate"
     container_name       = "tfstate"
     key                  = "00-foundation.tfstate"
+    use_azuread_auth     = true
   }
 }
 
@@ -57,6 +63,7 @@ data "terraform_remote_state" "network" {
     storage_account_name = "stnorthwindtfstate"
     container_name       = "tfstate"
     key                  = "10-network.tfstate"
+    use_azuread_auth     = true
   }
 }
 
