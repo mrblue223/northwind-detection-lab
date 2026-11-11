@@ -1,0 +1,41 @@
+---
+# Run order matters: domain must exist before users, users before the
+# weak-account tweaks, and telemetry can go on at any point after a host
+# is domain-joined (DC excluded from victim_ws, obviously).
+
+- name: Promote DC01 to a new AD forest
+  hosts: domain_controllers
+  gather_facts: false
+  roles:
+    - ad_domain
+
+- name: Create OUs, groups, and users from data/users.csv
+  hosts: domain_controllers
+  gather_facts: false
+  roles:
+    - ad_users
+
+- name: Add deliberate, tagged weaknesses for detection testing
+  hosts: domain_controllers
+  gather_facts: false
+  roles:
+    - weaknesses
+
+- name: Configure WS01 as a normal user workstation (phishing target)
+  hosts: workstations
+  gather_facts: false
+  roles:
+    - victim_ws
+
+- name: Install Sysmon and configure auditing on all Windows hosts
+  hosts: windows
+  gather_facts: false
+  roles:
+    - sysmon
+    - audit_policy
+
+- name: Install and configure Nessus on the scanner host
+  hosts: scanners
+  gather_facts: true # needed for apt/systemd facts, unlike the Windows plays above
+  roles:
+    - nessus

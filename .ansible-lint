@@ -1,0 +1,9 @@
+profile: production
+
+exclude_paths:
+  - .github/
+
+# var-naming is noisy against the department/OU-driven loop variables used
+# throughout ad_users and weaknesses - revisit if you rename those.
+skip_list:
+  - var-naming

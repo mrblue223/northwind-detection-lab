@@ -1,0 +1,23 @@
+// Detection: Persistence - new privileged group membership OR new
+// service/scheduled task creation
+// ATT&CK: T1136 Create Account / T1098 Account Manipulation,
+//         T1053 Scheduled Task, T1543.003 Windows Service
+// Data source: SecurityEvent (4728, 4732 group membership; 4698 scheduled
+//   task created; 7045 new service installed - the latter is in the System
+//   log, routed into SecurityEvent-equivalent table depending on your DCR)
+// Severity: High
+// Known false positives: legitimate IT onboarding/offboarding and software
+// installs. Correlate with the attack-chain timeline during validation
+// rather than trusting this alone in a short-lived lab.
+
+SecurityEvent
+| where EventID in (4728, 4732, 4698, 7045)
+| extend Detail = case(
+    EventID == 4728, strcat("Added to global group: ", TargetUserName, " -> ", MemberName),
+    EventID == 4732, strcat("Added to local group: ", TargetUserName, " -> ", MemberName),
+    EventID == 4698, strcat("Scheduled task created: ", TaskName),
+    EventID == 7045, strcat("New service installed: ", ServiceName),
+    "unknown"
+)
+| project TimeGenerated, Computer, EventID, Account, Detail
+| order by TimeGenerated desc

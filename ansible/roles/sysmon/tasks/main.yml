@@ -1,0 +1,30 @@
+---
+- name: Download Sysmon
+  ansible.windows.win_get_url:
+    url: https://download.sysinternals.com/files/Sysmon.zip
+    dest: C:\Temp\Sysmon.zip
+
+- name: Extract Sysmon
+  community.windows.win_unzip:
+    src: C:\Temp\Sysmon.zip
+    dest: C:\Temp\Sysmon
+
+- name: Copy lab Sysmon config
+  ansible.windows.win_copy:
+    src: sysmonconfig-lab.xml
+    dest: C:\Temp\Sysmon\sysmonconfig-lab.xml
+
+- name: Check if Sysmon service already exists
+  ansible.windows.win_service_info:
+    name: Sysmon64
+  register: sysmon_service
+
+- name: Install Sysmon with the lab config
+  ansible.windows.win_command: >
+    C:\Temp\Sysmon\Sysmon64.exe -accepteula -i C:\Temp\Sysmon\sysmonconfig-lab.xml
+  when: sysmon_service.exists is not defined or not sysmon_service.exists
+
+- name: Update config if Sysmon is already installed (idempotent re-apply)
+  ansible.windows.win_command: >
+    C:\Temp\Sysmon\Sysmon64.exe -c C:\Temp\Sysmon\sysmonconfig-lab.xml
+  when: sysmon_service.exists is defined and sysmon_service.exists

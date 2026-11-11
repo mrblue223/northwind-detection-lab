@@ -1,0 +1,25 @@
+// Detection: DS-Replication-Get-Changes / -All extended rights exercised
+// or granted by a principal that isn't a domain controller - the core
+// DCSync signature, and the same mechanism Microsoft Defender for
+// Identity's DCSync alert uses.
+// ATT&CK: T1003.006 OS Credential Dumping: DCSync
+// Data source: SecurityEvent Event ID 4662 (An operation was performed on
+//   an object) on DC01 - REQUIRES the SACL applied by
+//   ansible/roles/ad_domain/files/add-replication-audit-sacl.ps1 AND
+//   "Directory Service Access" auditing enabled (ansible/roles/audit_policy)
+//   or this query has nothing to alert on.
+// Severity: Critical
+// Known false positives: legitimate replication traffic between multiple
+// real domain controllers. This lab has a single DC (DC01), so any hit
+// here is inherently suspicious; in a multi-DC environment, exclude known
+// DC computer accounts from SubjectUserName.
+
+let ReplicationGetChanges    = "1131f6aa-9c07-11d1-f79f-00c04fc2dcd2";
+let ReplicationGetChangesAll = "1131f6ad-9c07-11d1-f79f-00c04fc2dcd2";
+SecurityEvent
+| where EventID == 4662
+| where Computer has "DC01"
+| where Properties has_any (ReplicationGetChanges, ReplicationGetChangesAll)
+| where SubjectUserName !endswith "$" // exclude machine accounts (would cover legitimate DCs in a multi-DC setup)
+| project TimeGenerated, Computer, SubjectUserName, SubjectUserSid, ObjectName, Properties
+| order by TimeGenerated desc

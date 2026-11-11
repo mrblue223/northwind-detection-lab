@@ -1,0 +1,18 @@
+// Detection: Suspicious process spawned from Outlook or a browser (WS01)
+// ATT&CK: T1566 Phishing, T1204 User Execution
+// Data source: Event (Sysmon Event ID 1 - Process Creation), via Windows Event table
+// Severity: High
+// Known false positives: legitimate macro-enabled workflows, browser-launched
+//   installers initiated intentionally by IT. Tune ParentImage allowlist per
+//   environment before relying on this in anything beyond a lab.
+
+Event
+| where EventID == 1 // Sysmon: Process Create
+| where Source == "Microsoft-Windows-Sysmon"
+| extend ParentImage = tostring(parse_xml(EventData).DataItem.EventData.Data[9]["#text"])
+| extend Image       = tostring(parse_xml(EventData).DataItem.EventData.Data[4]["#text"])
+| extend CommandLine = tostring(parse_xml(EventData).DataItem.EventData.Data[10]["#text"])
+| where ParentImage has_any ("OUTLOOK.EXE", "chrome.exe", "msedge.exe", "firefox.exe")
+| where Image has_any ("powershell.exe", "cmd.exe", "wscript.exe", "mshta.exe", "rundll32.exe")
+| project TimeGenerated, Computer, ParentImage, Image, CommandLine
+| order by TimeGenerated desc

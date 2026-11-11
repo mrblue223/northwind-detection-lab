@@ -1,0 +1,58 @@
+# Catches the failure mode CI/CD structurally cannot: someone (including you,
+# via the portal, in a hurry) changes live infra out-of-band. A clean PR
+# pipeline says nothing about whether reality still matches code - this job
+# is what actually checks that, on a schedule, independent of any commit.
+name: Drift Detection
+
+on:
+  schedule:
+    - cron: "0 13 * * *" # daily, 13:00 UTC - adjust to when you're likely to be online to react
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+  issues: write
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: [00-foundation, 10-network, 05-policy, 15-access, 20-compute, 40-sentinel]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: hashicorp/setup-terraform@a1502cd9e758c50496cc9ac5308c4843bcd56d36 # v3.1.2
+        with:
+          terraform_wrapper: false
+
+      - name: Init
+        run: terraform -chdir="terraform/${{ matrix.stack }}" init
+
+      - name: Plan (detection-only, exit code 2 means drift found)
+        id: plan
+        run: |
+          set +e
+          terraform -chdir="terraform/${{ matrix.stack }}" plan -detailed-exitcode -no-color
+          echo "exitcode=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Open an issue if drift was found
+        if: steps.plan.outputs.exitcode == '2'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Drift detected in terraform/${{ matrix.stack }}`,
+              body: "Scheduled drift-detection found changes between live Azure state and the committed Terraform for this stack. Run `terraform plan` locally to see the diff, then either reconcile the code or re-apply.",
+              labels: ["drift", "infra"]
+            })

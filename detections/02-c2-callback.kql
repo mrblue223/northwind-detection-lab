@@ -1,0 +1,18 @@
+// Detection: WS01 makes an unusual outbound network connection
+// ATT&CK: T1071 Application Layer Protocol / T1105 Ingress Tool Transfer
+// Data source: Sysmon Event ID 3 (Network Connection)
+// Severity: High
+// Known false positives: normal browser/update traffic. In the lab, scope
+// DestinationIp to the SET relay VM's mgmt-subnet IP to reduce noise, or
+// explicitly allowlist known-good destinations once a baseline exists.
+
+Event
+| where EventID == 3 // Sysmon: Network Connect
+| where Source == "Microsoft-Windows-Sysmon"
+| where Computer has "WS01"
+| extend Image           = tostring(parse_xml(EventData).DataItem.EventData.Data[4]["#text"])
+| extend DestinationIp   = tostring(parse_xml(EventData).DataItem.EventData.Data[14]["#text"])
+| extend DestinationPort = tostring(parse_xml(EventData).DataItem.EventData.Data[16]["#text"])
+| where Image !has_any ("chrome.exe", "msedge.exe", "OUTLOOK.EXE", "Teams.exe")
+| project TimeGenerated, Computer, Image, DestinationIp, DestinationPort
+| order by TimeGenerated desc

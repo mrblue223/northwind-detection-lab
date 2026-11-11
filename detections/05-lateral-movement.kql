@@ -1,0 +1,17 @@
+// Detection: New SMB/WinRM session from WS01 to FS01, abnormal for a
+// standard-user workstation
+// ATT&CK: T1021 Remote Services (.002 SMB/Windows Admin Shares, .006 WinRM)
+// Data source: SecurityEvent Event ID 4624 (Logon) type 3 (Network) on FS01
+// Severity: Medium-High
+// Known false positives: legitimate IT administration from WS01, scheduled
+// backup jobs. Exclude known admin workstations/accounts via a watchlist
+// once a baseline exists - this is exactly the kind of exclusion the
+// 'known admin path' watchlist (see 07) models.
+
+SecurityEvent
+| where Computer has "FS01"
+| where EventID == 4624
+| where LogonType == 3
+| where WorkstationName has "WS01"
+| project TimeGenerated, Computer, Account, WorkstationName, IpAddress, LogonType
+| order by TimeGenerated desc

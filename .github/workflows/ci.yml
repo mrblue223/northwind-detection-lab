@@ -1,0 +1,126 @@
+# NOTE: Actions below are pinned to commit SHAs as a supply-chain hygiene
+# practice (never trust a mutable tag like @v4 for a third-party action).
+# The SHAs here are illustrative placeholders - before first use, resolve
+# each action to its current release commit yourself (on the action's
+# GitHub repo: Releases -> the tag you want -> copy the commit SHA) and
+# replace them. Do not assume these are currently valid.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  terraform-fmt:
+    name: Terraform fmt check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: hashicorp/setup-terraform@a1502cd9e758c50496cc9ac5308c4843bcd56d36 # v3.1.2
+        with:
+          terraform_wrapper: false
+      - name: fmt -check on every stack
+        run: |
+          for dir in terraform/*/; do
+            echo "== $dir =="
+            terraform -chdir="$dir" fmt -check -recursive
+          done
+
+  tflint:
+    name: TFLint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: terraform-linters/setup-tflint@90f302c255ef959cbfb4bd10581afecdb7ece3e6 # v4.1.1
+        with:
+          tflint_version: v0.54.0
+      - name: Init TFLint
+        run: tflint --init
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run TFLint on every stack
+        run: |
+          for dir in terraform/*/; do
+            echo "== $dir =="
+            tflint --chdir="$dir" --recursive
+          done
+
+  checkov:
+    name: Checkov (IaC security/misconfig scan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@3e0a0b2b5d4e6f1d4b3c6e6a7a4a3e9f6a0b1c2d # v12.2912.0
+        with:
+          directory: terraform
+          framework: terraform
+          output_format: cli,sarif
+          output_file_path: console,checkov-results.sarif
+          soft_fail: false
+      - name: Upload SARIF to code scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@f09c1c0a94de965c15400f5634aa42fac8fb8f88 # v3.27.5
+        with:
+          sarif_file: checkov-results.sarif
+
+  gitleaks:
+    name: Secret scanning (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@44c470bcb6236d7f4c5e5ea9d6d5e2e3f2f49c8d # v2.3.6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  ansible-lint:
+    name: ansible-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.12"
+      - name: Install ansible-lint
+        run: pip install ansible-lint ansible
+      - name: Run ansible-lint
+        run: ansible-lint ansible/
+
+  terraform-plan:
+    name: Terraform plan (PR comment only, no apply)
+    runs-on: ubuntu-latest
+    needs: [terraform-fmt, tflint, checkov, gitleaks]
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write # OIDC to Azure, no stored credentials
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - uses: hashicorp/setup-terraform@a1502cd9e758c50496cc9ac5308c4843bcd56d36 # v3.1.2
+        with:
+          terraform_wrapper: false
+      - name: Plan each stack and comment
+        run: |
+          for dir in terraform/00-foundation terraform/10-network terraform/15-access terraform/20-compute terraform/40-sentinel terraform/05-policy; do
+            echo "::group::plan $dir"
+            terraform -chdir="$dir" init -backend=true
+            terraform -chdir="$dir" plan -no-color || true
+            echo "::endgroup::"
+          done
+      # A real setup would capture plan output per-stack and post via
+      # actions/github-script as a PR comment. Left intentionally simple
+      # here - see PLAN.md for this as a documented stretch goal.

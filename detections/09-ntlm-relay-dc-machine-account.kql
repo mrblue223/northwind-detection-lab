@@ -1,0 +1,20 @@
+// Detection: DC01's own machine account ($ account) authenticates via
+// NTLM to a workstation - a domain controller has no legitimate reason to
+// log on TO a workstation this way. This is the relayed-coercion signature.
+// ATT&CK: T1557.001 Adversary-in-the-Middle (relay half), T1187 Forced Authentication
+// Data source: SecurityEvent Event ID 4624 (Logon) type 3 (Network) on WS01
+// Severity: Critical
+// Known false positives: essentially none in a correctly functioning
+// environment - a DC machine account authenticating outbound to a
+// workstation is anomalous by construction, which is exactly why this is
+// one of the stronger signals in the whole project.
+
+SecurityEvent
+| where Computer has "WS01"
+| where EventID == 4624
+| where LogonType == 3
+| where AuthenticationPackageName == "NTLM"
+| where TargetUserName endswith "$" // machine account
+| where TargetUserName has "DC01"
+| project TimeGenerated, Computer, TargetUserName, IpAddress, LogonType, AuthenticationPackageName
+| order by TimeGenerated desc

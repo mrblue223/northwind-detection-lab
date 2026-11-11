@@ -1,0 +1,45 @@
+---
+- name: Read the fake employee roster
+  community.general.read_csv:
+    path: "{{ users_csv_path }}"
+  delegate_to: localhost
+  become: false
+  register: roster
+
+- name: Build the distinct OU list from the roster
+  ansible.builtin.set_fact:
+    departments: "{{ roster.list | map(attribute='ou') | unique | list }}"
+
+- name: Create an OU per department
+  ansible.windows.win_domain_ou:
+    name: "{{ item }}"
+    path: "DC=northwind,DC=local"
+    state: present
+  loop: "{{ departments }}"
+
+- name: Create a security group per department
+  ansible.windows.win_domain_group:
+    name: "GRP-{{ item }}"
+    scope: global
+    path: "OU={{ item }},DC=northwind,DC=local"
+    state: present
+  loop: "{{ departments }}"
+
+- name: Create each user, placed in their department OU
+  ansible.windows.win_domain_user:
+    name: "{{ item.samaccountname }}"
+    firstname: "{{ item.first_name }}"
+    surname: "{{ item.last_name }}"
+    company: "Northwind Dental"
+    department: "{{ item.department }}"
+    description: "{{ item.title }}"
+    path: "OU={{ item.ou }},DC=northwind,DC=local"
+    password: "ChangeMe!{{ 1000 | random }}"
+    password_never_expires: false
+    user_cannot_change_password: false
+    change_password_at_logon: true
+    groups:
+      - "GRP-{{ item.ou }}"
+    state: present
+  loop: "{{ roster.list }}"
+  when: item.samaccountname != weak_service_account # service account handled in weaknesses role

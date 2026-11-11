@@ -1,0 +1,47 @@
+---
+# Everything in this role is a DELIBERATE misconfiguration, created so the
+# attack chain and detections in detections/ have something real to find.
+# Each task is tagged `weakness` and named explicitly so `ansible-playbook
+# --list-tasks` makes the whole set auditable at a glance - this matters
+# both for your own documentation and so nobody mistakes this for
+# production guidance.
+
+- name: "WEAKNESS 1: create the Kerberoastable service account"
+  ansible.windows.win_domain_user:
+    name: "{{ weak_service_account }}"
+    firstname: Service
+    surname: BackupAgent
+    description: "Service Account - Backup (deliberately weak, see detections/04-kerberoasting.kql)"
+    path: "OU=ServiceAccounts,DC=northwind,DC=local"
+    password: "Summer2024!" # intentionally weak and never rotated
+    password_never_expires: true
+    state: present
+  tags: weakness
+
+- name: "WEAKNESS 1: register the SPN that makes it Kerberoastable"
+  ansible.windows.win_shell: >
+    setspn -A {{ weak_service_spn }} {{ weak_service_account }}
+  args:
+    creates: null # setspn has no idempotent check flag; safe to re-run, it just warns if already set
+  tags: weakness
+
+- name: "WEAKNESS 1: force RC4 (not AES) for this account, the actual Kerberoasting precondition"
+  ansible.windows.win_shell: >
+    Set-ADAccountControl -Identity {{ weak_service_account }} -DoesNotRequirePreAuth $false;
+    Set-ADUser -Identity {{ weak_service_account }} -KerberosEncryptionType RC4
+  tags: weakness
+
+- name: "WEAKNESS 2: create an over-privileged group (GRP-IT nested into Domain Admins)"
+  ansible.windows.win_domain_group_membership:
+    name: "Domain Admins"
+    members:
+      - "GRP-IT"
+    state: present
+  tags: weakness
+
+- name: "WEAKNESS 2: document the over-privileged group in AD description for auditability"
+  ansible.windows.win_domain_group:
+    name: GRP-IT
+    description: "WEAKNESS (lab): nested into Domain Admins - see PLAN.md Phase 2 and coverage.md"
+    state: present
+  tags: weakness

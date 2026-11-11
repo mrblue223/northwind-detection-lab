@@ -1,0 +1,17 @@
+// Detection: Kerberos service ticket requested with weak RC4 encryption
+// ATT&CK: T1558.003 Steal or Forge Kerberos Tickets: Kerberoasting
+// Data source: SecurityEvent Event ID 4769 (Kerberos Service Ticket Requested) on DC01
+// Severity: High
+// Known false positives: legacy applications that only support RC4. Confirm
+// the target account is flagged as a service account (SPN set) before
+// escalating, and check for a burst of requests across many SPNs from one
+// source, which is the stronger Kerberoasting signal.
+
+SecurityEvent
+| where EventID == 4769
+| where TicketEncryptionType == "0x17" // RC4-HMAC
+| where TargetUserName !endswith "$" // exclude machine accounts
+| where ServiceName !in ("krbtgt")
+| summarize RequestCount = count(), Services = make_set(ServiceName) by TargetUserName = Account, IpAddress, bin(TimeGenerated, 10m)
+| where RequestCount >= 3 or array_length(Services) >= 3
+| order by TimeGenerated desc

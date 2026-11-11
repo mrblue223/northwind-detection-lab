@@ -1,0 +1,51 @@
+<Sysmon schemaversion="4.90">
+  <!--
+    Deliberately narrow config: logs only what detections/*.kql queries
+    rely on, to keep ingestion volume (and therefore Log Analytics cost)
+    low. A production Sysmon config would be far broader - see
+    SwiftOnSecurity/sysmon-config or Olaf Hartong's modular config for a
+    comprehensive starting point if you extend this lab later.
+  -->
+  <EventFiltering>
+
+    <!-- Event ID 1: Process Creation - feeds 01-phishing-execution.kql -->
+    <RuleGroup name="" groupRelation="or">
+      <ProcessCreate onmatch="include">
+        <ParentImage condition="end with">OUTLOOK.EXE</ParentImage>
+        <ParentImage condition="end with">chrome.exe</ParentImage>
+        <ParentImage condition="end with">msedge.exe</ParentImage>
+        <ParentImage condition="end with">firefox.exe</ParentImage>
+        <Image condition="end with">powershell.exe</Image>
+        <Image condition="end with">cmd.exe</Image>
+        <Image condition="end with">wscript.exe</Image>
+        <Image condition="end with">mshta.exe</Image>
+        <Image condition="end with">rundll32.exe</Image>
+      </ProcessCreate>
+    </RuleGroup>
+
+    <!-- Event ID 3: Network Connect - feeds 02-c2-callback.kql -->
+    <RuleGroup name="" groupRelation="or">
+      <NetworkConnect onmatch="exclude">
+        <Image condition="end with">chrome.exe</Image>
+        <Image condition="end with">msedge.exe</Image>
+        <Image condition="end with">OUTLOOK.EXE</Image>
+        <Image condition="end with">Teams.exe</Image>
+        <Image condition="end with">svchost.exe</Image>
+      </NetworkConnect>
+    </RuleGroup>
+
+    <!-- Event ID 10: Process Access - feeds 03-credential-dumping.kql -->
+    <RuleGroup name="" groupRelation="or">
+      <ProcessAccess onmatch="include">
+        <TargetImage condition="end with">lsass.exe</TargetImage>
+      </ProcessAccess>
+    </RuleGroup>
+
+    <!-- Everything else: off, to keep this lab's ingestion cheap -->
+    <ProcessTerminate onmatch="include" />
+    <FileCreateTime onmatch="include" />
+    <RegistryEvent onmatch="include" />
+    <FileCreate onmatch="include" />
+
+  </EventFiltering>
+</Sysmon>

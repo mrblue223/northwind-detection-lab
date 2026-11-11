@@ -1,0 +1,78 @@
+---
+# Nessus Essentials is free but requires a personal activation code from
+# Tenable (email signup at tenable.com/products/nessus/nessus-essentials).
+# That step CANNOT be automated - it requires a real email and Tenable's
+# own registration flow. Get the code first, put it in
+# group_vars/all.yml as `nessus_activation_code`, then run this role.
+
+- name: Install prerequisites
+  ansible.builtin.apt:
+    name:
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+  become: true
+
+- name: Download the Nessus Essentials .deb package
+  ansible.builtin.get_url:
+    url: "{{ nessus_download_url }}"
+    dest: /tmp/Nessus.deb
+    mode: "0644"
+  become: true
+  # nessus_download_url must point to the current Ubuntu 22.04 .deb link
+  # from Tenable's downloads page (https://www.tenable.com/downloads/nessus)
+  # - this changes with each release, so it's a variable, not hardcoded.
+
+- name: Install Nessus
+  ansible.builtin.apt:
+    deb: /tmp/Nessus.deb
+  become: true
+
+- name: Ensure the Nessus service is running
+  ansible.builtin.systemd:
+    name: nessusd
+    state: started
+    enabled: true
+  become: true
+
+- name: Register Nessus with the Essentials activation code
+  ansible.builtin.command: >
+    /opt/nessus/sbin/nessuscli fetch --register {{ nessus_activation_code }}
+  become: true
+  register: nessus_register
+  changed_when: "'already registered' not in nessus_register.stdout"
+  failed_when: >
+    nessus_register.rc != 0 and 'already registered' not in nessus_register.stdout
+
+- name: Create the initial Nessus admin user (interactive by default - scripted here)
+  ansible.builtin.expect:
+    command: /opt/nessus/sbin/nessuscli adduser {{ nessus_admin_user }}
+    responses:
+      "Login password": "{{ nessus_admin_password }}"
+      "Login password \\(again\\)": "{{ nessus_admin_password }}"
+      "Do you want this user to be a Nessus 'system administrator' user": "yes"
+      "Enter code to add": "\n"
+  become: true
+  register: nessus_adduser
+  changed_when: "'already exists' not in nessus_adduser.stdout"
+  failed_when: >
+    nessus_adduser.rc != 0 and 'already exists' not in nessus_adduser.stdout
+
+- name: Restart Nessus to complete plugin compilation (first run only, can take several minutes)
+  ansible.builtin.systemd:
+    name: nessusd
+    state: restarted
+  become: true
+  when: nessus_register is changed
+
+- name: Note on scan creation
+  ansible.builtin.debug:
+    msg: >
+      Nessus is installed and reachable at https://10.10.1.11:8834 via the
+      scan01-admin Twingate Resource. Scan policies/targets are created
+      through the web UI or the Nessus API - not scripted here, since scan
+      scheduling is something you'll want to adjust interactively. Target
+      the corp subnet (10.10.2.0/24) for an unauthenticated discovery scan
+      first; add Windows admin credentials (stored in Key Vault, not here)
+      for a credentialed scan once that baseline works.

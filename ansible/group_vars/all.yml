@@ -1,0 +1,22 @@
+---
+domain_name: northwind.local
+domain_netbios_name: NORTHWIND
+domain_admin_user: "{{ ansible_user }}"
+domain_admin_password: "{{ lookup('env', 'ANSIBLE_WINRM_PASSWORD') }}"
+
+users_csv_path: "{{ playbook_dir }}/../data/users.csv"
+default_user_ou: "OU=Users,DC=northwind,DC=local"
+
+# The deliberately weak service account used for the Kerberoasting
+# detection (04-kerberoasting.kql). Matches svc_backup in data/users.csv.
+weak_service_account: svc_backup
+weak_service_spn: "MSSQLSvc/fs01.northwind.local:1433"
+
+# Nessus (SCAN01) - fill these in before running the nessus role.
+# Activation code: free signup at tenable.com/products/nessus/nessus-essentials
+nessus_activation_code: "CHANGE-ME-GET-FROM-TENABLE"
+# Current .deb link from https://www.tenable.com/downloads/nessus - this
+# URL changes with every Nessus release, verify before each use.
+nessus_download_url: "CHANGE-ME-CURRENT-DEB-URL"
+nessus_admin_user: scanadmin
+nessus_admin_password: "{{ lookup('env', 'NESSUS_ADMIN_PASSWORD') }}"

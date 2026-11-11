@@ -1,0 +1,27 @@
+samaccountname,first_name,last_name,title,department,ou
+jmartin,James,Martin,Office Manager,Admin,Admin
+spatel,Sana,Patel,Dentist,Clinical,Clinical
+rwilliams,Robert,Williams,Dentist,Clinical,Clinical
+lchen,Lisa,Chen,Dental Hygienist,Clinical,Clinical
+tnguyen,Tyler,Nguyen,Dental Hygienist,Clinical,Clinical
+akim,Anna,Kim,Dental Assistant,Clinical,Clinical
+mgarcia,Maria,Garcia,Dental Assistant,Clinical,Clinical
+dthompson,David,Thompson,Dental Assistant,Clinical,Clinical
+ebrown,Emily,Brown,Receptionist,FrontDesk,FrontDesk
+jsmith,John,Smith,Receptionist,FrontDesk,FrontDesk
+kjohnson,Karen,Johnson,Billing Specialist,Billing,Billing
+plee,Paul,Lee,Billing Specialist,Billing,Billing
+swhite,Sarah,White,Office Admin,Admin,Admin
+bharris,Brian,Harris,IT Support,IT,IT
+cclark,Chris,Clark,IT Manager,IT,IT
+nlewis,Nina,Lewis,HR Coordinator,HR,HR
+jwalker,Jason,Walker,Dentist,Clinical,Clinical
+ahall,Amy,Hall,Dental Hygienist,Clinical,Clinical
+rallen,Rachel,Allen,Dental Assistant,Clinical,Clinical
+tyoung,Tom,Young,Dental Assistant,Clinical,Clinical
+mking,Michelle,King,Receptionist,FrontDesk,FrontDesk
+dwright,Daniel,Wright,Billing Specialist,Billing,Billing
+lscott,Laura,Scott,Office Manager,Admin,Admin
+egreen,Eric,Green,Dentist,Clinical,Clinical
+svadim,Svetlana,Vadim,Dental Hygienist,Clinical,Clinical
+svc_backup,Service,BackupAgent,Service Account - Backup,IT,ServiceAccounts

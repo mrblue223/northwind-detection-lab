@@ -1,0 +1,35 @@
+---
+# Enables the specific Windows audit subcategories each detection depends
+# on. Kept narrow for the same ingestion-cost reason as the Sysmon config.
+
+- name: Enable Kerberos Service Ticket Operations auditing (feeds 04-kerberoasting.kql, Event 4769)
+  ansible.windows.win_shell: auditpol /set /subcategory:"Kerberos Service Ticket Operations" /success:enable /failure:enable
+
+- name: Enable Logon auditing (feeds 05-lateral-movement.kql, Event 4624)
+  ansible.windows.win_shell: auditpol /set /subcategory:"Logon" /success:enable /failure:enable
+
+- name: Enable Security Group Management auditing (feeds 06-persistence.kql, Events 4728/4732)
+  ansible.windows.win_shell: auditpol /set /subcategory:"Security Group Management" /success:enable /failure:enable
+
+- name: Enable Other Object Access Events / Scheduled Task auditing (feeds 06-persistence.kql, Event 4698)
+  ansible.windows.win_shell: auditpol /set /subcategory:"Other Object Access Events" /success:enable /failure:enable
+
+- name: Enable Directory Service Access auditing (feeds 10-dcsync-rights-abuse.kql, Event 4662 - requires the SACL from ad_domain's add-replication-audit-sacl.ps1 to also be applied)
+  ansible.windows.win_shell: auditpol /set /subcategory:"Directory Service Access" /success:enable /failure:enable
+  when: "'DC01' in ansible_hostname or inventory_hostname == 'dc01'"
+
+- name: Enable PowerShell Script Block Logging via registry
+  ansible.windows.win_regedit:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging
+    name: EnableScriptBlockLogging
+    data: 1
+    type: dword
+    state: present
+
+- name: Enable Process Creation command-line auditing (gives CommandLine in Sysmon/Security events)
+  ansible.windows.win_regedit:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit
+    name: ProcessCreationIncludeCmdLine_Enabled
+    data: 1
+    type: dword
+    state: present

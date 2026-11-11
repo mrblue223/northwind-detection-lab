@@ -1,0 +1,4 @@
+twingate_network_name   = "your-twingate-network-slug"
+admin_user_emails        = ["you@example.com"]
+redteam_user_emails      = ["you@example.com"]
+enable_redteam_resource  = false

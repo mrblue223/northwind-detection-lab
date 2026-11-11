@@ -1,0 +1,21 @@
+// Detection: Named pipe connection to EFSRPC/Spooler endpoints on DC01,
+// sourced from a non-admin host - the signature of PetitPotam/PrinterBug
+// coercion attempts
+// ATT&CK: T1187 Forced Authentication
+// Data source: Sysmon Event ID 18 (Pipe Connected) on DC01
+// Severity: High
+// Known false positives: legitimate EFS or print-spooler activity from
+// admin workstations or print servers. This is an APPROXIMATION, not a
+// guaranteed catch - see attack-chain/02b-coercion-ntlmrelay-dcsync.md for
+// the honest limitation. Tighten SourceIp exclusions once a baseline of
+// legitimate spooler/EFS traffic exists in your environment.
+
+Event
+| where EventID == 18 // Sysmon: Pipe Connected
+| where Source == "Microsoft-Windows-Sysmon"
+| where Computer has "DC01"
+| extend PipeName = tostring(parse_xml(EventData).DataItem.EventData.Data[4]["#text"])
+| extend ProcessImage = tostring(parse_xml(EventData).DataItem.EventData.Data[3]["#text"])
+| where PipeName has_any ("efsrpc", "lsarpc", "spoolss")
+| project TimeGenerated, Computer, PipeName, ProcessImage
+| order by TimeGenerated desc
