@@ -43,12 +43,22 @@ resource "random_password" "connector_admin" {
 }
 
 resource "azurerm_key_vault_secret" "connector_admin_password" {
+  #checkov:skip=CKV_AZURE_41:Lab secrets are regenerated on each destroy/rebuild; a hard expiry date would risk silent mid-lab auth failures with no security gain - grc/risk-register.md R11
   name         = "connector-admin-password"
   value        = random_password.connector_admin.result
   key_vault_id = data.terraform_remote_state.foundation.outputs.key_vault_id
+  content_type = "password" # Checkov CKV_AZURE_114
 }
 
 resource "azurerm_linux_virtual_machine" "connector" {
+  # Accepted lab trade-offs (see grc/risk-register.md R13/R14). The connector is
+  # provisioned by cloud-init with a random 20-char password stored in Key Vault
+  # (admin_password above); password auth is deliberate for this bootstrap path.
+  # The Azure Monitor agent extension is required telemetry, not optional tooling.
+  #checkov:skip=CKV_AZURE_149:Password auth is deliberate for the cloud-init connector; credential is a 20-char random value held only in Key Vault - R13
+  #checkov:skip=CKV_AZURE_178:SSH-key-only would break the cloud-init bootstrap for this connector - R13
+  #checkov:skip=CKV_AZURE_1:Same deliberate password-auth bootstrap choice - R13
+  #checkov:skip=CKV_AZURE_50:The Azure Monitor agent extension is the telemetry pipeline this detection lab exists for - R14
   name                            = "vm-tg-connector"
   resource_group_name             = local.rg
   location                        = local.location

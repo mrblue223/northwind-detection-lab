@@ -47,21 +47,29 @@ jobs:
   checkov:
     name: Checkov (IaC security/misconfig scan)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # upload SARIF to code scanning
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Run Checkov
-        uses: bridgecrewio/checkov-action@99bb2caf247dfd9f03cf984373bc6043d4e32ebf # v12.1347.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          directory: terraform
-          framework: terraform
-          output_format: cli,sarif
-          output_file_path: console,checkov-results.sarif
-          soft_fail: false
+          python-version: "3.12"
+      # Run Checkov via pip (pinned) rather than the Docker action: the action's
+      # bundled image (checkov 2.0.930) rejected the cli,sarif output format and
+      # never actually scanned. This version matches what is validated locally.
+      - name: Install Checkov
+        run: pip install checkov==3.4.4
+      - name: Run Checkov
+        # Hard gate (no soft-fail): non-zero exit on any finding fails the job.
+        # Writes results_sarif.sarif and prints the summary to the log.
+        run: checkov -d terraform --framework terraform -o sarif --output-file-path .
       - name: Upload SARIF to code scanning
         if: always()
+        continue-on-error: true # reporting is best-effort; the gate is Checkov's exit code
         uses: github/codeql-action/upload-sarif@9418214df1f2c4b8128c770156c409013b07d6b9 # v3.39.3
         with:
-          sarif_file: checkov-results.sarif
+          sarif_file: results_sarif.sarif
 
   gitleaks:
     name: Secret scanning (gitleaks)
