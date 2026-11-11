@@ -27,6 +27,6 @@ variable "enable_redteam_access" {
     then back to false. This is the network-layer half of the red-team
     access story; the Twingate CIDR Resource in 15-access is the other half.
   EOT
-  type    = bool
-  default = false
+  type        = bool
+  default     = false
 }

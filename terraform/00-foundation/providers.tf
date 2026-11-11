@@ -15,7 +15,7 @@ terraform {
   # again. All other stacks (10-network, 15-access, 20-compute, ...) use this
   # backend from the start via `terraform_remote_state` data sources.
   backend "azurerm" {
-    resource_group_name = "rg-northwind-tfstate"
+    resource_group_name  = "rg-northwind-tfstate"
     storage_account_name = "stnorthwindtfstate" # must be globally unique - change this
     container_name       = "tfstate"
     key                  = "00-foundation.tfstate"

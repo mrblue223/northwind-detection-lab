@@ -9,8 +9,8 @@ resource "azurerm_log_analytics_workspace" "lab" {
   resource_group_name = local.rg
   location            = local.location
   sku                 = "PerGB2018"
-  retention_in_days    = var.log_retention_days
-  daily_quota_gb       = var.daily_quota_gb # set low once outside the free trial window
+  retention_in_days   = var.log_retention_days
+  daily_quota_gb      = var.daily_quota_gb # set low once outside the free trial window
 }
 
 resource "azurerm_sentinel_log_analytics_workspace_onboarding" "lab" {
@@ -24,12 +24,12 @@ resource "azurerm_sentinel_log_analytics_workspace_onboarding" "lab" {
 resource "azurerm_monitor_data_collection_rule" "windows_security" {
   name                = "dcr-${var.project}-windows-security"
   resource_group_name = local.rg
-  location             = local.location
+  location            = local.location
 
   destinations {
     log_analytics {
       workspace_resource_id = azurerm_log_analytics_workspace.lab.id
-      name                   = "lab-law"
+      name                  = "lab-law"
     }
   }
 
@@ -130,14 +130,14 @@ resource "azurerm_sentinel_alert_rule_scheduled" "detections" {
   log_analytics_workspace_id = azurerm_log_analytics_workspace.lab.id
   display_name               = each.value.name
   severity                   = each.value.severity
-  query                       = file("${path.module}/../../detections/${each.key}.kql")
-  query_frequency             = "PT10M"
-  query_period                = "PT10M"
-  trigger_operator            = "GreaterThan"
-  trigger_threshold           = 0
-  tactics                     = each.value.tactics
-  techniques                  = each.value.techniques
-  enabled                     = true
+  query                      = file("${path.module}/../../detections/${each.key}.kql")
+  query_frequency            = "PT10M"
+  query_period               = "PT10M"
+  trigger_operator           = "GreaterThan"
+  trigger_threshold          = 0
+  tactics                    = each.value.tactics
+  techniques                 = each.value.techniques
+  enabled                    = true
 
   incident_configuration {
     create_incident = true

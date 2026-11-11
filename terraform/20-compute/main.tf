@@ -6,7 +6,7 @@ locals {
 
   hosts = {
     dc01 = { ip = "10.10.2.10", image = "win2022", computer_name = "DC01" }
-    ws01 = { ip = "10.10.2.11", image = "win11",   computer_name = "WS01" }
+    ws01 = { ip = "10.10.2.11", image = "win11", computer_name = "WS01" }
     fs01 = { ip = "10.10.2.12", image = "win2022", computer_name = "FS01" }
   }
 
@@ -78,11 +78,11 @@ resource "azurerm_windows_virtual_machine" "host" {
 resource "azurerm_dev_test_global_vm_shutdown_schedule" "host" {
   for_each           = local.hosts
   virtual_machine_id = azurerm_windows_virtual_machine.host[each.key].id
-  location            = local.location
-  enabled             = true
+  location           = local.location
+  enabled            = true
 
   daily_recurrence_time = var.auto_shutdown_time
-  timezone               = var.auto_shutdown_timezone
+  timezone              = var.auto_shutdown_timezone
 
   notification_settings {
     enabled         = length(var.auto_shutdown_notify_emails) > 0
@@ -157,7 +157,7 @@ resource "azurerm_linux_virtual_machine" "scan01" {
   os_disk {
     caching              = "ReadWrite"
     storage_account_type = "StandardSSD_LRS"
-    disk_size_gb          = 32 # Nessus itself is lightweight; this just needs room for scan results/plugins
+    disk_size_gb         = 32 # Nessus itself is lightweight; this just needs room for scan results/plugins
   }
 
   source_image_reference {

@@ -24,8 +24,8 @@ variable "enable_redteam_resource" {
     all ports. Keep FALSE by default; flip to true only during `make attack`
     runs. Pairs with var.enable_redteam_access in 10-network (the NSG side).
   EOT
-  type    = bool
-  default = false
+  type        = bool
+  default     = false
 }
 
 variable "connector_vm_size" {

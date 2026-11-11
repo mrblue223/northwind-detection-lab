@@ -6,7 +6,7 @@ terraform {
       version = "~> 3.110"
     }
     twingate = {
-      source  = "Twingate/twingate"
+      source = "Twingate/twingate"
       # Pinned to the 3.x series deliberately: v4 introduced breaking schema
       # changes (access_group -> access_groups, singular -> plural blocks,
       # added is_authoritative). The resource syntax in this stack

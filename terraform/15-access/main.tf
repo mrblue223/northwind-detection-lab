@@ -1,7 +1,7 @@
 locals {
-  rg            = data.terraform_remote_state.foundation.outputs.resource_group_name
-  location      = data.terraform_remote_state.foundation.outputs.location
-  mgmt_subnet   = data.terraform_remote_state.network.outputs.mgmt_subnet_id
+  rg          = data.terraform_remote_state.foundation.outputs.resource_group_name
+  location    = data.terraform_remote_state.foundation.outputs.location
+  mgmt_subnet = data.terraform_remote_state.network.outputs.mgmt_subnet_id
 }
 
 # ---------------------------------------------------------------------------
@@ -13,7 +13,7 @@ resource "twingate_remote_network" "lab" {
 
 resource "twingate_connector" "lab" {
   remote_network_id = twingate_remote_network.lab.id
-  name               = "${var.project}-connector"
+  name              = "${var.project}-connector"
 }
 
 resource "twingate_connector_tokens" "lab" {
@@ -49,12 +49,12 @@ resource "azurerm_key_vault_secret" "connector_admin_password" {
 }
 
 resource "azurerm_linux_virtual_machine" "connector" {
-  name                = "vm-tg-connector"
-  resource_group_name = local.rg
-  location            = local.location
-  size                = var.connector_vm_size
-  admin_username      = var.admin_username
-  admin_password      = random_password.connector_admin.result
+  name                            = "vm-tg-connector"
+  resource_group_name             = local.rg
+  location                        = local.location
+  size                            = var.connector_vm_size
+  admin_username                  = var.admin_username
+  admin_password                  = random_password.connector_admin.result
   disable_password_authentication = false
 
   network_interface_ids = [azurerm_network_interface.connector.id]
@@ -62,7 +62,7 @@ resource "azurerm_linux_virtual_machine" "connector" {
   os_disk {
     caching              = "ReadWrite"
     storage_account_type = "StandardSSD_LRS" # cheapest disk that isn't HDD-slow
-    disk_size_gb          = 30               # smallest practical size
+    disk_size_gb         = 30                # smallest practical size
   }
 
   source_image_reference {
@@ -79,8 +79,8 @@ resource "azurerm_linux_virtual_machine" "connector" {
   }))
 
   tags = {
-    project = var.project
-    role    = "twingate-connector"
+    project   = var.project
+    role      = "twingate-connector"
     always_on = "true"
   }
 }
@@ -102,9 +102,9 @@ resource "twingate_group" "redteam" {
 # Admin resources: narrow, per-host, per-protocol
 # ---------------------------------------------------------------------------
 resource "twingate_resource" "dc01_admin" {
-  name               = "dc01-admin"
-  address            = "10.10.2.10"
-  remote_network_id  = twingate_remote_network.lab.id
+  name              = "dc01-admin"
+  address           = "10.10.2.10"
+  remote_network_id = twingate_remote_network.lab.id
 
   protocols {
     allow_icmp = false

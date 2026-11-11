@@ -8,9 +8,9 @@ resource "azurerm_resource_group" "lab" {
   location = var.location
 
   tags = {
-    project   = var.project
-    purpose   = "detection-engineering-lab"
-    teardown  = "safe-to-destroy"
+    project  = var.project
+    purpose  = "detection-engineering-lab"
+    teardown = "safe-to-destroy"
   }
 }
 
@@ -44,7 +44,7 @@ resource "azurerm_storage_account" "tfstate" {
 
 resource "azurerm_storage_container" "tfstate" {
   name                  = "tfstate"
-  storage_account_name = azurerm_storage_account.tfstate.name
+  storage_account_name  = azurerm_storage_account.tfstate.name
   container_access_type = "private"
 }
 
@@ -54,7 +54,7 @@ resource "azurerm_storage_container" "tfstate" {
 # ---------------------------------------------------------------------------
 resource "azurerm_key_vault" "lab" {
   name                       = "kv-${var.project}-lab"
-  resource_group_name       = azurerm_resource_group.lab.name
+  resource_group_name        = azurerm_resource_group.lab.name
   location                   = azurerm_resource_group.lab.location
   tenant_id                  = data.azurerm_client_config.current.tenant_id
   sku_name                   = "standard"
