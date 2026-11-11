@@ -8,15 +8,13 @@ variable "twingate_network_name" {
   type        = string
 }
 
-variable "admin_user_emails" {
-  description = "Emails of users who should get admin (RDP/WinRM/SSH) access"
-  type        = list(string)
-}
-
-variable "redteam_user_emails" {
-  description = "Emails of users who should get the broad red-team CIDR resource. Usually the same as admin_user_emails for a solo lab."
-  type        = list(string)
-}
+# NOTE: Twingate group membership is handled via console invite (the
+# twingate_group resources below are created with users = []); there is no
+# resource that consumes a list of emails. The previously-declared
+# admin_user_emails / redteam_user_emails variables were therefore unused
+# (flagged by TFLint terraform_unused_declarations) and have been removed.
+# See VALIDATION_NOTES.md. If group membership is later driven from Terraform,
+# reintroduce them wired to a twingate_users data source + group.users.
 
 variable "enable_redteam_resource" {
   description = <<-EOT

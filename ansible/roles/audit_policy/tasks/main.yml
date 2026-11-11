@@ -14,7 +14,10 @@
 - name: Enable Other Object Access Events / Scheduled Task auditing (feeds 06-persistence.kql, Event 4698)
   ansible.windows.win_shell: auditpol /set /subcategory:"Other Object Access Events" /success:enable /failure:enable
 
-- name: Enable Directory Service Access auditing (feeds 10-dcsync-rights-abuse.kql, Event 4662 - requires the SACL from ad_domain's add-replication-audit-sacl.ps1 to also be applied)
+- name: >-
+    Enable Directory Service Access auditing (feeds 10-dcsync-rights-abuse.kql,
+    Event 4662 - requires the SACL from ad_domain's
+    add-replication-audit-sacl.ps1 to also be applied)
   ansible.windows.win_shell: auditpol /set /subcategory:"Directory Service Access" /success:enable /failure:enable
   when: "'DC01' in ansible_hostname or inventory_hostname == 'dc01'"
 

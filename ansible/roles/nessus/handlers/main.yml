@@ -1,0 +1,8 @@
+---
+# Restarting nessusd is a reaction to a change (registration completing), so
+# it belongs in a handler rather than a task gated on a registered result.
+- name: Restart Nessus to complete plugin compilation
+  ansible.builtin.systemd:
+    name: nessusd
+    state: restarted
+  become: true

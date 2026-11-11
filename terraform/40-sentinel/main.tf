@@ -64,8 +64,10 @@ resource "azurerm_monitor_data_collection_rule_association" "windows_security" {
 # Analytics rules - one per file in ../../detections/*.kql
 # ---------------------------------------------------------------------------
 locals {
-  detection_files = fileset("${path.module}/../../detections", "*.kql")
-
+  # The analytics rules iterate the explicit `detections` map below (each entry
+  # carries the name/severity/tactics/techniques metadata a KQL file can't). An
+  # earlier fileset() local was unused once this map existed - removed to satisfy
+  # TFLint terraform_unused_declarations. See VALIDATION_NOTES.md.
   detections = {
     "01-phishing-execution" = {
       name       = "Phishing payload execution on WS01"

@@ -11,14 +11,14 @@
     departments: "{{ roster.list | map(attribute='ou') | unique | list }}"
 
 - name: Create an OU per department
-  ansible.windows.win_domain_ou:
+  microsoft.ad.ou:
     name: "{{ item }}"
     path: "DC=northwind,DC=local"
     state: present
   loop: "{{ departments }}"
 
 - name: Create a security group per department
-  ansible.windows.win_domain_group:
+  microsoft.ad.group:
     name: "GRP-{{ item }}"
     scope: global
     path: "OU={{ item }},DC=northwind,DC=local"
@@ -26,20 +26,32 @@
   loop: "{{ departments }}"
 
 - name: Create each user, placed in their department OU
-  ansible.windows.win_domain_user:
+  microsoft.ad.user:
+    # name is the LDAP cn; keep it equal to the sAMAccountName so the DN
+    # (CN=<sam>,OU=...) is unchanged from the old win_domain_user behaviour.
     name: "{{ item.samaccountname }}"
+    sam_account_name: "{{ item.samaccountname }}"
     firstname: "{{ item.first_name }}"
     surname: "{{ item.last_name }}"
     company: "Northwind Dental"
-    department: "{{ item.department }}"
     description: "{{ item.title }}"
     path: "OU={{ item.ou }},DC=northwind,DC=local"
     password: "ChangeMe!{{ 1000 | random }}"
-    password_never_expires: false
+    # "must change password at next logon" is now password_expired, which is
+    # mutually exclusive with password_never_expires - so the old explicit
+    # password_never_expires: false (the default anyway) is dropped.
+    password_expired: true
     user_cannot_change_password: false
-    change_password_at_logon: true
+    # department has no dedicated argument in microsoft.ad.user; set the raw
+    # LDAP attribute instead.
+    attributes:
+      set:
+        department: "{{ item.department }}"
+    # groups is now a dict of add/remove/set; set replaces membership, which
+    # matches the old win_domain_user default groups_action of replace.
     groups:
-      - "GRP-{{ item.ou }}"
+      set:
+        - "GRP-{{ item.ou }}"
     state: present
   loop: "{{ roster.list }}"
   when: item.samaccountname != weak_service_account # service account handled in weaknesses role
