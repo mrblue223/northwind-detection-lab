@@ -17,11 +17,11 @@ resource "random_password" "user" {
 resource "azuread_user" "lab" {
   for_each = { for u in local.users : u.samaccountname => u }
 
-  user_principal_name = "${each.value.samaccountname}@${var.tenant_domain}"
-  display_name        = "${each.value.first_name} ${each.value.last_name}"
-  department           = each.value.department
-  job_title            = each.value.title
-  password             = random_password.user[each.key].result
+  user_principal_name   = "${each.value.samaccountname}@${var.tenant_domain}"
+  display_name          = "${each.value.first_name} ${each.value.last_name}"
+  department            = each.value.department
+  job_title             = each.value.title
+  password              = random_password.user[each.key].result
   force_password_change = true
 }
 

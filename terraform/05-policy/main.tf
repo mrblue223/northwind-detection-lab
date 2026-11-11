@@ -29,16 +29,16 @@ data "azurerm_policy_definition" "allowed_locations" {
 # ---------------------------------------------------------------------------
 resource "azurerm_resource_group_policy_assignment" "no_public_ip" {
   name                 = "no-public-ip-on-nic"
-  resource_group_id   = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${local.rg}"
+  resource_group_id    = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${local.rg}"
   policy_definition_id = data.azurerm_policy_definition.no_public_ip_on_nic.id
-  description           = "Enforces the lab's no-public-IP network design. Audit effect: this built-in does not support Deny."
+  description          = "Enforces the lab's no-public-IP network design. Audit effect: this built-in does not support Deny."
 }
 
 resource "azurerm_resource_group_policy_assignment" "require_project_tag" {
   name                 = "require-project-tag"
-  resource_group_id   = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${local.rg}"
+  resource_group_id    = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${local.rg}"
   policy_definition_id = data.azurerm_policy_definition.require_tag.id
-  description           = "Blocks creation of any resource missing the 'project' tag - keeps cost attribution and the teardown story honest."
+  description          = "Blocks creation of any resource missing the 'project' tag - keeps cost attribution and the teardown story honest."
 
   parameters = jsonencode({
     tagName = {
@@ -49,9 +49,9 @@ resource "azurerm_resource_group_policy_assignment" "require_project_tag" {
 
 resource "azurerm_resource_group_policy_assignment" "allowed_locations" {
   name                 = "allowed-locations"
-  resource_group_id   = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${local.rg}"
+  resource_group_id    = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${local.rg}"
   policy_definition_id = data.azurerm_policy_definition.allowed_locations.id
-  description           = "Prevents an accidental resource creation in an unexpected region (a real-world source of both surprise cost and untracked attack surface)."
+  description          = "Prevents an accidental resource creation in an unexpected region (a real-world source of both surprise cost and untracked attack surface)."
 
   parameters = jsonencode({
     listOfAllowedLocations = {

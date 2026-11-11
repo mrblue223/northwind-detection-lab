@@ -1,16 +1,20 @@
 ---
 - name: Join WS01 to the domain
-  ansible.windows.win_domain_membership:
+  microsoft.ad.membership:
     dns_domain_name: "{{ domain_name }}"
     domain_admin_user: "{{ domain_admin_user }}@{{ domain_name }}"
     domain_admin_password: "{{ domain_admin_password }}"
     state: domain
+    # reboot handled by the explicit win_reboot task below (gated on this
+    # task's changed result), so leave the module default reboot: false.
   register: join_result
 
 - name: Reboot after domain join
   ansible.windows.win_reboot:
     reboot_timeout: 600
-  when: join_result is changed
+  # Inline (not a handler) so the host is back before later tasks; gated on the
+  # module's reboot_required return rather than the no-handler `is changed` idiom.
+  when: join_result.reboot_required | default(false)
 
 - name: Ensure a standard (non-admin) domain user is set as the regular logon account
   ansible.windows.win_shell: |
@@ -20,12 +24,15 @@
   # realistic case for a phishing target.
 
 - name: Install a browser and basic office tooling for realism
-  ansible.windows.win_chocolatey:
+  chocolatey.chocolatey.win_chocolatey:
     name:
       - googlechrome
       - notepadplusplus
     state: present
-  ignore_errors: true # chocolatey install can be flaky in a lab; not critical path
+  # Best-effort: chocolatey installs can be flaky in a lab and this is not on
+  # the critical path, so never fail the play on it (failed_when over the
+  # ignore_errors idiom ansible-lint flags).
+  failed_when: false
 
 - name: Note on email client
   ansible.builtin.debug:

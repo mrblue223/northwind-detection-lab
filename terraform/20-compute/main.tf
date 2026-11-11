@@ -6,7 +6,7 @@ locals {
 
   hosts = {
     dc01 = { ip = "10.10.2.10", image = "win2022", computer_name = "DC01" }
-    ws01 = { ip = "10.10.2.11", image = "win11",   computer_name = "WS01" }
+    ws01 = { ip = "10.10.2.11", image = "win11", computer_name = "WS01" }
     fs01 = { ip = "10.10.2.12", image = "win2022", computer_name = "FS01" }
   }
 
@@ -41,6 +41,13 @@ resource "azurerm_network_interface" "host" {
 }
 
 resource "azurerm_windows_virtual_machine" "host" {
+  # Accepted lab trade-offs (see grc/risk-register.md R14/R15). Managed disks are
+  # already platform-encrypted at rest; host-level encryption needs the
+  # EncryptionAtHost subscription feature and adds setup cost for no lab benefit.
+  # The Azure Monitor agent extension (azurerm_virtual_machine_extension.ama) is
+  # required telemetry for the detection pipeline, not optional tooling.
+  #checkov:skip=CKV_AZURE_151:Host encryption not enabled - disks are platform-encrypted at rest; EncryptionAtHost is out of scope for the lab - R15
+  #checkov:skip=CKV_AZURE_50:The Azure Monitor agent extension is the telemetry pipeline this detection lab exists for - R14
   for_each            = local.hosts
   name                = each.key
   computer_name       = each.value.computer_name
@@ -78,11 +85,11 @@ resource "azurerm_windows_virtual_machine" "host" {
 resource "azurerm_dev_test_global_vm_shutdown_schedule" "host" {
   for_each           = local.hosts
   virtual_machine_id = azurerm_windows_virtual_machine.host[each.key].id
-  location            = local.location
-  enabled             = true
+  location           = local.location
+  enabled            = true
 
   daily_recurrence_time = var.auto_shutdown_time
-  timezone               = var.auto_shutdown_timezone
+  timezone              = var.auto_shutdown_timezone
 
   notification_settings {
     enabled         = length(var.auto_shutdown_notify_emails) > 0
@@ -119,10 +126,16 @@ resource "tls_private_key" "scan01" {
   rsa_bits  = 4096
 }
 
+resource "time_offset" "secret_expiry" {
+  offset_days = 365 # creation + 1 year; resets on rebuild (Checkov CKV_AZURE_41)
+}
+
 resource "azurerm_key_vault_secret" "scan01_ssh_private_key" {
-  name         = "scan01-ssh-private-key"
-  value        = tls_private_key.scan01.private_key_pem
-  key_vault_id = data.terraform_remote_state.foundation.outputs.key_vault_id
+  name            = "scan01-ssh-private-key"
+  value           = tls_private_key.scan01.private_key_pem
+  key_vault_id    = data.terraform_remote_state.foundation.outputs.key_vault_id
+  content_type    = "application/x-pem-file"          # Checkov CKV_AZURE_114
+  expiration_date = time_offset.secret_expiry.rfc3339 # Checkov CKV_AZURE_41
 }
 
 resource "azurerm_network_interface" "scan01" {
@@ -139,6 +152,7 @@ resource "azurerm_network_interface" "scan01" {
 }
 
 resource "azurerm_linux_virtual_machine" "scan01" {
+  #checkov:skip=CKV_AZURE_50:The Azure Monitor agent extension is required telemetry for the detection lab - grc/risk-register.md R14
   name                = "scan01"
   computer_name       = "scan01"
   resource_group_name = local.rg
@@ -157,7 +171,7 @@ resource "azurerm_linux_virtual_machine" "scan01" {
   os_disk {
     caching              = "ReadWrite"
     storage_account_type = "StandardSSD_LRS"
-    disk_size_gb          = 32 # Nessus itself is lightweight; this just needs room for scan results/plugins
+    disk_size_gb         = 32 # Nessus itself is lightweight; this just needs room for scan results/plugins
   }
 
   source_image_reference {

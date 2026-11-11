@@ -98,17 +98,17 @@ resource "azurerm_subnet_network_security_group_association" "corp" {
 # even though it's always-on.
 # ---------------------------------------------------------------------------
 resource "azurerm_network_security_rule" "scanner_to_corp" {
-  name                         = "Allow-Scanner-To-Corp"
-  priority                     = 140
-  direction                    = "Inbound"
-  access                       = "Allow"
-  protocol                     = "*"
-  source_port_range            = "*"
-  destination_port_ranges      = ["22", "135", "139", "445", "3389", "5985", "5986", "49152-65535"]
-  source_address_prefix        = "10.10.1.11/32" # SCAN01's fixed IP - see 20-compute
-  destination_address_prefix   = var.corp_subnet_prefix
-  resource_group_name          = local.rg
-  network_security_group_name  = azurerm_network_security_group.corp.name
+  name                        = "Allow-Scanner-To-Corp"
+  priority                    = 140
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "*"
+  source_port_range           = "*"
+  destination_port_ranges     = ["22", "135", "139", "445", "3389", "5985", "5986", "49152-65535"]
+  source_address_prefix       = "10.10.1.11/32" # SCAN01's fixed IP - see 20-compute
+  destination_address_prefix  = var.corp_subnet_prefix
+  resource_group_name         = local.rg
+  network_security_group_name = azurerm_network_security_group.corp.name
 }
 
 # ---------------------------------------------------------------------------

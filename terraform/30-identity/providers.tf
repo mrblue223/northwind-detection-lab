@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/azuread"
       version = "~> 2.53"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 
   backend "azurerm" {
@@ -12,6 +16,7 @@ terraform {
     storage_account_name = "stnorthwindtfstate"
     container_name       = "tfstate"
     key                  = "30-identity.tfstate"
+    use_azuread_auth     = true
   }
 }
 

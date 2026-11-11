@@ -1,9 +1,3 @@
-# NOTE: Actions below are pinned to commit SHAs as a supply-chain hygiene
-# practice (never trust a mutable tag like @v4 for a third-party action).
-# The SHAs here are illustrative placeholders - before first use, resolve
-# each action to its current release commit yourself (on the action's
-# GitHub repo: Releases -> the tag you want -> copy the commit SHA) and
-# replace them. Do not assume these are currently valid.
 name: CI
 
 on:
@@ -20,8 +14,8 @@ jobs:
     name: Terraform fmt check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: hashicorp/setup-terraform@a1502cd9e758c50496cc9ac5308c4843bcd56d36 # v3.1.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_wrapper: false
       - name: fmt -check on every stack
@@ -35,8 +29,8 @@ jobs:
     name: TFLint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: terraform-linters/setup-tflint@90f302c255ef959cbfb4bd10581afecdb7ece3e6 # v4.1.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
         with:
           tflint_version: v0.54.0
       - name: Init TFLint
@@ -53,31 +47,39 @@ jobs:
   checkov:
     name: Checkov (IaC security/misconfig scan)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # upload SARIF to code scanning
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Run Checkov
-        uses: bridgecrewio/checkov-action@3e0a0b2b5d4e6f1d4b3c6e6a7a4a3e9f6a0b1c2d # v12.2912.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          directory: terraform
-          framework: terraform
-          output_format: cli,sarif
-          output_file_path: console,checkov-results.sarif
-          soft_fail: false
+          python-version: "3.12"
+      # Run Checkov via pip (pinned) rather than the Docker action: the action's
+      # bundled image (checkov 2.0.930) rejected the cli,sarif output format and
+      # never actually scanned. This version matches what is validated locally.
+      - name: Install Checkov
+        run: pip install checkov==3.4.4
+      - name: Run Checkov
+        # Hard gate (no soft-fail): non-zero exit on any finding fails the job.
+        # Writes results_sarif.sarif and prints the summary to the log.
+        run: checkov -d terraform --framework terraform -o sarif --output-file-path .
       - name: Upload SARIF to code scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@f09c1c0a94de965c15400f5634aa42fac8fb8f88 # v3.27.5
+        continue-on-error: true # reporting is best-effort; the gate is Checkov's exit code
+        uses: github/codeql-action/upload-sarif@9418214df1f2c4b8128c770156c409013b07d6b9 # v3.39.3
         with:
-          sarif_file: checkov-results.sarif
+          sarif_file: results_sarif.sarif
 
   gitleaks:
     name: Secret scanning (gitleaks)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@44c470bcb6236d7f4c5e5ea9d6d5e2e3f2f49c8d # v2.3.6
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -85,12 +87,14 @@ jobs:
     name: ansible-lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - name: Install ansible-lint
         run: pip install ansible-lint ansible
+      - name: Install required Ansible collections
+        run: ansible-galaxy collection install -r ansible/requirements.yml
       - name: Run ansible-lint
         run: ansible-lint ansible/
 
@@ -104,16 +108,32 @@ jobs:
       pull-requests: write
       id-token: write # OIDC to Azure, no stored credentials
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Skip gracefully (not fail) when Azure OIDC isn't configured yet. Once
+      # AZURE_CLIENT_ID et al. are set as repo secrets, this job plans for real.
+      - name: Check for Azure OIDC configuration
+        id: azcfg
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        run: |
+          if [ -n "$AZURE_CLIENT_ID" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "AZURE_CLIENT_ID not configured - skipping plan (set up Azure OIDC to enable this job)."
+          fi
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        if: steps.azcfg.outputs.configured == 'true'
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - uses: hashicorp/setup-terraform@a1502cd9e758c50496cc9ac5308c4843bcd56d36 # v3.1.2
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        if: steps.azcfg.outputs.configured == 'true'
         with:
           terraform_wrapper: false
       - name: Plan each stack and comment
+        if: steps.azcfg.outputs.configured == 'true'
         run: |
           for dir in terraform/00-foundation terraform/10-network terraform/15-access terraform/20-compute terraform/40-sentinel terraform/05-policy; do
             echo "::group::plan $dir"

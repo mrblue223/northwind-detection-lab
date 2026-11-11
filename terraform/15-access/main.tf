@@ -1,7 +1,7 @@
 locals {
-  rg            = data.terraform_remote_state.foundation.outputs.resource_group_name
-  location      = data.terraform_remote_state.foundation.outputs.location
-  mgmt_subnet   = data.terraform_remote_state.network.outputs.mgmt_subnet_id
+  rg          = data.terraform_remote_state.foundation.outputs.resource_group_name
+  location    = data.terraform_remote_state.foundation.outputs.location
+  mgmt_subnet = data.terraform_remote_state.network.outputs.mgmt_subnet_id
 }
 
 # ---------------------------------------------------------------------------
@@ -13,7 +13,7 @@ resource "twingate_remote_network" "lab" {
 
 resource "twingate_connector" "lab" {
   remote_network_id = twingate_remote_network.lab.id
-  name               = "${var.project}-connector"
+  name              = "${var.project}-connector"
 }
 
 resource "twingate_connector_tokens" "lab" {
@@ -37,32 +37,45 @@ resource "azurerm_network_interface" "connector" {
   }
 }
 
-resource "random_password" "connector_admin" {
-  length  = 20
-  special = true
+resource "tls_private_key" "connector" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
 }
 
-resource "azurerm_key_vault_secret" "connector_admin_password" {
-  name         = "connector-admin-password"
-  value        = random_password.connector_admin.result
-  key_vault_id = data.terraform_remote_state.foundation.outputs.key_vault_id
+resource "time_offset" "secret_expiry" {
+  offset_days = 365 # creation + 1 year; resets on rebuild (Checkov CKV_AZURE_41)
+}
+
+resource "azurerm_key_vault_secret" "connector_ssh_private_key" {
+  name            = "connector-ssh-private-key"
+  value           = tls_private_key.connector.private_key_pem
+  key_vault_id    = data.terraform_remote_state.foundation.outputs.key_vault_id
+  content_type    = "application/x-pem-file"          # Checkov CKV_AZURE_114
+  expiration_date = time_offset.secret_expiry.rfc3339 # Checkov CKV_AZURE_41
 }
 
 resource "azurerm_linux_virtual_machine" "connector" {
-  name                = "vm-tg-connector"
-  resource_group_name = local.rg
-  location            = local.location
-  size                = var.connector_vm_size
-  admin_username      = var.admin_username
-  admin_password      = random_password.connector_admin.result
-  disable_password_authentication = false
+  # The Azure Monitor agent extension is required telemetry, not optional
+  # tooling (see grc/risk-register.md R14).
+  #checkov:skip=CKV_AZURE_50:The Azure Monitor agent extension is the telemetry pipeline this detection lab exists for - R14
+  name                            = "vm-tg-connector"
+  resource_group_name             = local.rg
+  location                        = local.location
+  size                            = var.connector_vm_size
+  admin_username                  = var.admin_username
+  disable_password_authentication = true
+
+  admin_ssh_key {
+    username   = var.admin_username
+    public_key = tls_private_key.connector.public_key_openssh
+  }
 
   network_interface_ids = [azurerm_network_interface.connector.id]
 
   os_disk {
     caching              = "ReadWrite"
     storage_account_type = "StandardSSD_LRS" # cheapest disk that isn't HDD-slow
-    disk_size_gb          = 30               # smallest practical size
+    disk_size_gb         = 30                # smallest practical size
   }
 
   source_image_reference {
@@ -79,8 +92,8 @@ resource "azurerm_linux_virtual_machine" "connector" {
   }))
 
   tags = {
-    project = var.project
-    role    = "twingate-connector"
+    project   = var.project
+    role      = "twingate-connector"
     always_on = "true"
   }
 }
@@ -102,9 +115,9 @@ resource "twingate_group" "redteam" {
 # Admin resources: narrow, per-host, per-protocol
 # ---------------------------------------------------------------------------
 resource "twingate_resource" "dc01_admin" {
-  name               = "dc01-admin"
-  address            = "10.10.2.10"
-  remote_network_id  = twingate_remote_network.lab.id
+  name              = "dc01-admin"
+  address           = "10.10.2.10"
+  remote_network_id = twingate_remote_network.lab.id
 
   protocols {
     allow_icmp = false

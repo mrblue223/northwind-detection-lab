@@ -7,8 +7,9 @@
 # production guidance.
 
 - name: "WEAKNESS 1: create the Kerberoastable service account"
-  ansible.windows.win_domain_user:
+  microsoft.ad.user:
     name: "{{ weak_service_account }}"
+    sam_account_name: "{{ weak_service_account }}"
     firstname: Service
     surname: BackupAgent
     description: "Service Account - Backup (deliberately weak, see detections/04-kerberoasting.kql)"
@@ -32,15 +33,19 @@
   tags: weakness
 
 - name: "WEAKNESS 2: create an over-privileged group (GRP-IT nested into Domain Admins)"
-  ansible.windows.win_domain_group_membership:
-    name: "Domain Admins"
+  microsoft.ad.group:
+    # microsoft.ad has no group_membership module; membership is managed on
+    # the group itself. identity selects the existing builtin group, and
+    # members.add nests GRP-IT without disturbing the rest of its membership.
+    identity: "Domain Admins"
     members:
-      - "GRP-IT"
+      add:
+        - "GRP-IT"
     state: present
   tags: weakness
 
 - name: "WEAKNESS 2: document the over-privileged group in AD description for auditability"
-  ansible.windows.win_domain_group:
+  microsoft.ad.group:
     name: GRP-IT
     description: "WEAKNESS (lab): nested into Domain Admins - see PLAN.md Phase 2 and coverage.md"
     state: present

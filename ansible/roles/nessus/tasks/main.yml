@@ -44,6 +44,9 @@
   changed_when: "'already registered' not in nessus_register.stdout"
   failed_when: >
     nessus_register.rc != 0 and 'already registered' not in nessus_register.stdout
+  # A change here (first-time registration) triggers the plugin-compilation
+  # restart via the handler, replacing the old when:-gated restart task.
+  notify: Restart Nessus to complete plugin compilation
 
 - name: Create the initial Nessus admin user (interactive by default - scripted here)
   ansible.builtin.expect:
@@ -58,13 +61,6 @@
   changed_when: "'already exists' not in nessus_adduser.stdout"
   failed_when: >
     nessus_adduser.rc != 0 and 'already exists' not in nessus_adduser.stdout
-
-- name: Restart Nessus to complete plugin compilation (first run only, can take several minutes)
-  ansible.builtin.systemd:
-    name: nessusd
-    state: restarted
-  become: true
-  when: nessus_register is changed
 
 - name: Note on scan creation
   ansible.builtin.debug:
