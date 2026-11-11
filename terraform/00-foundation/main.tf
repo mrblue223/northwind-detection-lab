@@ -285,3 +285,27 @@ resource "azurerm_monitor_activity_log_alert" "policy_assignment_change" {
     action_group_id = azurerm_monitor_action_group.budget_alert.id
   }
 }
+
+# Individual-resource deletion coverage for the UNLOCKED lab RG. The RG-deletion
+# alert above only fires on `resourceGroups/delete` (an exact operationName
+# match, no wildcard), so deleting a single resource inside rg-${var.project}-lab
+# would otherwise go unnoticed. The Key Vault is the crown-jewel resource there
+# (it holds every lab secret), so its deletion gets its own alert. The state RG's
+# resources are already covered by the CanNotDelete lock's inheritance, so only
+# the lab RG is scoped here.
+resource "azurerm_monitor_activity_log_alert" "key_vault_deletion" {
+  name                = "ala-${var.project}-keyvault-deletion"
+  resource_group_name = azurerm_resource_group.lab.name
+  location            = "global"
+  scopes              = [azurerm_resource_group.lab.id]
+  description         = "A Key Vault was deleted in the lab resource group."
+
+  criteria {
+    category       = "Administrative"
+    operation_name = "Microsoft.KeyVault/vaults/delete"
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.budget_alert.id
+  }
+}
