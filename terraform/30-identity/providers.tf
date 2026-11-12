@@ -13,7 +13,7 @@ terraform {
 
   backend "azurerm" {
     resource_group_name  = "rg-northwind-tfstate"
-    storage_account_name = "stnorthwindtfstate"
+    storage_account_name = "stnwdental1127"
     container_name       = "tfstate"
     key                  = "30-identity.tfstate"
     use_azuread_auth     = true

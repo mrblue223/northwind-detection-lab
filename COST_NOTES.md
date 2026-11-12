@@ -5,9 +5,28 @@ Target: free trial credits first, then **≤ $20/month** steady state.
 ## What's built so far and its cost shape
 
 - **00-foundation**: resource group, budget alert (Action Group + Consumption
-  Budget at $15/80%/100%), Key Vault, tfstate storage account. All of this is
-  effectively free (Key Vault standard tier + tiny storage account = a few
-  cents/month).
+  Budget at $15/80%/100%), Key Vault, tfstate storage account, plus the
+  governance layer below. All of this is effectively free (Key Vault standard
+  tier + tiny storage account = a few cents/month).
+- **00-foundation governance layer** (management lock, Defender for Cloud free
+  tier, Activity Log alerts) — **$0**, confirmed against the resource types used
+  here:
+  - **Management lock** (`CanNotDelete` on the state RG): resource locks are a
+    free Azure Resource Manager feature.
+  - **Microsoft Defender for Cloud — Free tier**: the foundational CSPM (secure
+    score + security recommendations) is free. This is a real distinction: the
+    *paid* Defender plans (Servers/Storage/Key Vault) bill per resource —
+    Defender for Servers Plan 2 is ~$15/VM/month, which would be ~$60/month
+    across the four lab VMs. We deliberately stay on Free (see risk-register.md
+    R16); do **not** flip `tier` to `"Standard"` without re-reading the budget.
+  - **Activity Log alerts** (`azurerm_monitor_activity_log_alert`): Azure Monitor
+    **activity log** alert rules are free. Note this is specifically activity-log
+    alerts — Monitor *metric* alerts and *log-search* alerts DO bill per rule, so
+    don't swap these for those without checking. Action-group email
+    notifications are also free at this volume.
+
+  Re-check these against current Azure pricing before relying on the numbers —
+  Microsoft changes free-tier terms (rule 4 below).
 - **10-network**: VNet, subnets, NSGs. Free — no charge for VNets/NSGs
   themselves, only for data processed, which is negligible at lab scale.
 

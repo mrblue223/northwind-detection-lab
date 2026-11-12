@@ -1,3 +1,3 @@
-budget_alert_emails = ["you@example.com"]
+budget_alert_emails = ["it-ops@northwinddental.example"]
 budget_amount        = 15
-tfstate_storage_account_name = "stnorthwindtfstateXXXX" # make this globally unique
+tfstate_storage_account_name = "stnwdental1127" # Northwind Dental-themed; change the numeric suffix to make it globally unique

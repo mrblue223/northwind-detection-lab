@@ -6,12 +6,19 @@ instead of silently working around it.
 
 ## 1. Never touch real Azure without an explicit go-ahead
 
-- Do **not** run `terraform plan` or `terraform apply` against real Azure, and do
-  **not** run or suggest `make up` / `make plan-all` / `make init`, unless I have
-  said **"deploy to azure"** or **"run apply"** in this session first.
-- The same applies to anything that authenticates to a live subscription
-  (`az login`, `terraform init` against the remote backend, `make destroy`,
-  `make down`). These cost money and mutate real infrastructure.
+Never run terraform plan/apply against real Azure, and never run any `az` CLI
+command that creates, modifies, or deletes a real Azure resource, role
+assignment, or policy - including but not limited to `az group create`, `az vm
+create`, `az role assignment create`, `az ad app`/`sp create`, `az keyvault`,
+`az resource delete` - without me first explicitly saying "deploy to azure" or
+"run apply" or naming the specific az command I want run. Read-only az commands
+(`az account show`, `az group list`, `az role assignment list`, etc.) are always
+fine without asking, since they can't change anything. When in doubt about
+whether a command is read-only or mutating, treat it as mutating and ask first.
+
+- This also covers `make up` / `make plan-all` / `make init` / `make down` /
+  `make destroy` and `terraform init` against the remote backend - all gated the
+  same way.
 - Local, credential-free work is always fine: `terraform fmt`, `terraform
   validate` (offline), reading state-free HCL, TFLint, ansible-lint, gitleaks.
 
@@ -28,6 +35,13 @@ Fix the **real** findings. Do not blanket-suppress a rule (`skip_list`,
 `# noqa`, `-ignore-rule`) to make a check go green. If a finding genuinely must
 be suppressed (false positive, deliberate lab weakness), document the specific
 rule, the file, and the reason in `VALIDATION_NOTES.md` in the same commit.
+
+**Commit Terraform lock files.** Every stack's `.terraform.lock.hcl` is committed
+to version control (it pins exact provider versions for reproducible `init`
+across machines and CI). The lock files are generated naturally as each stack is
+`init`-ed; commit each one the first time it appears, and commit the updated lock
+whenever a provider version constraint changes. Only `.terraform/` (the provider
+cache) is gitignored, never the lock file.
 
 ## 3. Ansible AD modules: use `microsoft.ad`, not the removed `win_domain*`
 
@@ -77,6 +91,21 @@ COST_NOTES.md). This is a legitimate, realistic business justification for the
 pentest report later ("accepted given a defined budget constraint"), not a sign
 of sloppy work — but it must be stated, never hidden behind a generic
 `#checkov:skip` with no real reasoning.
+
+## Cloud security best practices (standing principle)
+
+All Azure resources must follow least-privilege and defense-in-depth by default:
+scope RBAC role assignments to the narrowest resource/resource-group possible,
+never to the subscription, unless there is a specific, documented reason (note
+it inline if so). Prefer managed identities / OIDC federated credentials over any
+long-lived credential or key wherever Azure supports it for that resource type.
+Any new secret, key, or credential must go into Key Vault, never into a file,
+environment variable committed to the repo, or printed in chat/logs. Any new
+network-facing resource defaults to no public inbound access unless the task
+explicitly requires it (and if it does, require it to be justified and recorded
+in `grc/risk-register.md`, per the existing project pattern). This applies
+retroactively: if you notice an existing resource that violates this during
+future work, flag it to me rather than silently leaving it or silently fixing it.
 
 ---
 

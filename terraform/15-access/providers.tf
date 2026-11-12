@@ -27,7 +27,7 @@ terraform {
 
   backend "azurerm" {
     resource_group_name  = "rg-northwind-tfstate"
-    storage_account_name = "stnorthwindtfstate" # must match 00-foundation
+    storage_account_name = "stnwdental1127" # must match 00-foundation
     container_name       = "tfstate"
     key                  = "15-access.tfstate"
     use_azuread_auth     = true
@@ -49,7 +49,7 @@ data "terraform_remote_state" "foundation" {
   backend = "azurerm"
   config = {
     resource_group_name  = "rg-northwind-tfstate"
-    storage_account_name = "stnorthwindtfstate"
+    storage_account_name = "stnwdental1127"
     container_name       = "tfstate"
     key                  = "00-foundation.tfstate"
     use_azuread_auth     = true
@@ -60,7 +60,7 @@ data "terraform_remote_state" "network" {
   backend = "azurerm"
   config = {
     resource_group_name  = "rg-northwind-tfstate"
-    storage_account_name = "stnorthwindtfstate"
+    storage_account_name = "stnwdental1127"
     container_name       = "tfstate"
     key                  = "10-network.tfstate"
     use_azuread_auth     = true
