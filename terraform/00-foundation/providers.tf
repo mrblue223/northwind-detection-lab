@@ -24,7 +24,7 @@ terraform {
   # backend from the start via `terraform_remote_state` data sources.
   backend "azurerm" {
     resource_group_name  = "rg-northwind-tfstate"
-    storage_account_name = "stnorthwindtfstate" # must be globally unique - change this
+    storage_account_name = "stnwdental1127" # must match variables.tf default (globally unique; adjust suffix if taken)
     container_name       = "tfstate"
     key                  = "00-foundation.tfstate"
     use_azuread_auth     = true
