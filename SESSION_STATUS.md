@@ -56,40 +56,58 @@ stack creates), so the first apply is a bootstrap with the backend commented
 out. Full background for every step is in `VALIDATION_NOTES.md`
 ("First-deploy bootstrap of 00-foundation").
 
+> **The Storage Blob Data Contributor grant (step 3) is ALWAYS required on a
+> fresh storage account — every time, before `migrate-state` will work.** This
+> has now been confirmed on two separate deploys; it is unconditional, not a
+> "do this if you hit an error" step.
+>
+> **A successful `terraform apply` does NOT mean you can skip the grant.** The
+> apply creates the container and blob soft-delete through the Azure *management*
+> plane, which your **Owner** role already covers — so the apply succeeds with no
+> blob-data role at all. But `terraform init -migrate-state` writes the actual
+> state *blob*, which is a true *data-plane* write and needs **Storage Blob Data
+> Contributor** (shared keys are disabled). A clean apply is the exact misleading
+> signal that tempts you to jump straight to migrate-state without the grant —
+> don't. Do the grant every time.
+
 ```bash
 cd terraform/00-foundation
 
 # 1. Bootstrap: comment OUT the `backend "azurerm" { ... }` block in providers.tf
 #    (local state), because the state storage account does not exist yet.
 
-# 2. Init (local state) + first apply. Save the plan and apply it explicitly.
+# 2. Init (local state) + apply. Save the plan and apply it explicitly.
+#    With storage_use_azuread = true already in the code, this SUCCEEDS cleanly:
+#    16 to add, 0 change, 0 destroy. (The 403 / tainted-account behaviour only
+#    happened on the very first deploy, before the storage_use_azuread fix.)
 terraform init
 terraform plan  -out=tfplan -var='budget_alert_emails=["YOUR_EMAIL_HERE"]'
 terraform apply tfplan
-#    This FAILS on the storage account with 403 KeyBasedAuthenticationNotPermitted,
-#    because shared_access_key_enabled = false and the caller has no blob-data role.
-#    (storage_use_azuread = true is already set on the provider — that half is done.)
 
-# 3. One-time RBAC grant: Storage Blob Data Contributor, scoped to the account.
+# 3. ALWAYS-REQUIRED grant before migrate-state (see the note above): Storage
+#    Blob Data Contributor, scoped to the account. Do this every time on a fresh
+#    account, EVEN THOUGH the apply above succeeded.
 OBJECT_ID=$(az ad signed-in-user show --query id -o tsv)
 SUB=$(az account show --query id -o tsv)
 az role assignment create \
   --assignee "$OBJECT_ID" \
   --role "Storage Blob Data Contributor" \
   --scope "/subscriptions/$SUB/resourceGroups/rg-northwind-tfstate/providers/Microsoft.Storage/storageAccounts/stnwdental1127"
-#    Wait ~1 min for RBAC to propagate.
 
-# 4. Finish the apply. The storage account is created-but-tainted; the CanNotDelete
-#    lock would block REPLACING it, so untaint (it's healthy) and apply in-place.
-terraform untaint azurerm_storage_account.tfstate
-terraform plan  -out=tfplan2 -var='budget_alert_emails=["YOUR_EMAIL_HERE"]'
-terraform apply tfplan2        # 1 added (container) + 1 changed (blob soft-delete)
-
-# 5. Migrate state into the backend: RESTORE (uncomment) the backend block, then:
+# 4. Migrate state into the backend: RESTORE (uncomment) the backend block, then:
 terraform init -migrate-state -force-copy
-#    Then delete the local terraform.tfstate / .tfstate.backup — the backup keeps
-#    the generated domain-admin password in plaintext. Both are gitignored.
+#    Data-plane RBAC propagation lags ~1-5 min, so this can 403 with
+#    AuthorizationPermissionMismatch on the first try even though the role is
+#    assigned. It leaves state unmodified on failure — just retry until it works.
+#    Then delete the local state (the .backup keeps the domain-admin password in
+#    plaintext; both are gitignored):
+rm -f terraform.tfstate terraform.tfstate.backup
 ```
+
+> Contingency (not the happy path): if an apply ever *partially* fails and leaves
+> the storage account `tainted`, the `CanNotDelete` lock blocks REPLACING it —
+> `terraform untaint azurerm_storage_account.tfstate` and re-apply in-place
+> instead of letting Terraform destroy/recreate it.
 
 ### Teardown again (if needed), cleanly
 
@@ -108,7 +126,11 @@ az group list --query "[?contains(name,'northwind')].name" -o tsv   # expect: em
 
 - Keyless state storage needs `storage_use_azuread = true` (done) **and** the
   caller holding **Storage Blob Data Contributor** on the account — Owner is not
-  enough (management-plane only).
+  enough (it covers management-plane ops only). The `terraform apply` succeeds
+  *without* the data role (container + blob props are management-plane), but
+  `migrate-state` writes the state blob (data-plane) and **always** needs the
+  role — a clean apply is not a signal that the grant can be skipped. Grant it
+  on every fresh account.
 - The `CanNotDelete` lock blocks *replacing* a tainted-but-healthy storage
   account — `untaint`, don't replace.
 - Never `terraform destroy` with the remote backend still active, or it deletes
