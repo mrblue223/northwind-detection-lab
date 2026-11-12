@@ -32,6 +32,13 @@ terraform {
 }
 
 provider "azurerm" {
+  # The tfstate storage account has shared-key auth disabled
+  # (shared_access_key_enabled = false), so the provider must use Azure AD for
+  # storage data-plane operations (blob properties, container creation) instead
+  # of the account key. Requires the caller to hold a Storage Blob Data role on
+  # the account - see VALIDATION_NOTES.md.
+  storage_use_azuread = true
+
   features {
     key_vault {
       purge_soft_delete_on_destroy    = true

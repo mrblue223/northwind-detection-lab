@@ -28,6 +28,45 @@ Remaining Checkov suppressions are documented with cost/lifecycle rationale in
 premium, purge-protection lifecycle, required monitoring extensions, host
 encryption). None are suppressed for mere convenience.
 
+## First-deploy bootstrap of 00-foundation (operational notes)
+
+Learned while actually applying `00-foundation` for the first time. Two gotchas
+that follow directly from the keyless-storage + management-lock hardening:
+
+- **Keyless state storage needs AAD data-plane auth AND an RBAC grant.** Because
+  `azurerm_storage_account.tfstate` sets `shared_access_key_enabled = false`, the
+  provider cannot use the account key for data-plane operations (blob soft-delete
+  properties, creating the `tfstate` container). Two things are required:
+  1. `storage_use_azuread = true` on the `azurerm` provider (now set in
+     `00-foundation/providers.tf`) so it uses an Azure AD token for storage
+     data-plane calls; and
+  2. the caller (operator, or CI's OIDC identity) must hold **Storage Blob Data
+     Contributor** on the storage account - Owner/Contributor is NOT enough, as
+     those are management-plane only. Without the role the apply fails with
+     `403 KeyBasedAuthenticationNotPermitted` (key path) or a
+     `403 AuthorizationPermissionMismatch` (AAD path).
+- **This role grant can't be fully self-codified (chicken-and-egg).** The data-
+  plane config runs as part of creating the storage account itself, so a separate
+  `azurerm_role_assignment` resource would apply too late on the first run. The
+  grant is therefore a one-time out-of-band bootstrap step, scoped to the storage
+  account (narrowest scope, per CLAUDE.md), e.g.:
+  `az role assignment create --assignee <objectId> --role "Storage Blob Data Contributor" --scope <storage-account-id>`.
+  Re-run `terraform apply` after the grant propagates (RBAC can take a minute).
+- **Untaint, don't replace, a storage account the CanNotDelete lock protects.**
+  If the first apply half-fails, Terraform marks the storage account `tainted`
+  and the next apply tries to REPLACE it (destroy + recreate). That destroy is
+  blocked by the `CanNotDelete` lock on `rg-northwind-tfstate` (the lock working
+  as intended - `409 ScopeLocked`). When the account is otherwise healthy
+  (`provisioningState = Succeeded`), `terraform untaint
+  azurerm_storage_account.tfstate` and re-apply: Terraform then updates it
+  in-place (no destroy, no lock conflict).
+- **State migration + secret hygiene.** After the account exists, uncomment the
+  backend block and `terraform init -migrate-state -force-copy`. Then delete the
+  local `terraform.tfstate` and `terraform.tfstate.backup` - the backup retains
+  the full state (including the generated domain-admin password) in plaintext.
+  Both are gitignored, so they are never committed, but they must not linger on
+  disk once the remote state is confirmed.
+
 ## CI green-up pass (ansible-lint / TFLint findings)
 
 This round got the GitHub CI pipeline passing. Nothing was suppressed - every
