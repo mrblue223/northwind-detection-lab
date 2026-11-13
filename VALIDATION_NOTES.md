@@ -207,6 +207,19 @@ to map 1:1 - several interfaces changed):
   resources"`, `"Allowed locations"`) - confirm these exact names still
   exist in Policy > Definitions in your subscription before applying;
   Microsoft periodically renames or supersedes built-ins.
+- **`Standard_B2s` capacity in `eastus` — KNOWN RISK before applying 20-compute**:
+  DC01, WS01, FS01 **and** SCAN01 all default to `Standard_B2s`
+  (`20-compute/variables.tf`: `vm_size`, `scan01_vm_size`). On 2026-11-13 the
+  entire **B-series was capacity-restricted in eastus** (`409 SkuNotAvailable` /
+  "Capacity Restrictions") - exactly why the 15-access connector had to move off
+  `Standard_B1s` to `Standard_F1als_v7`. Applying 20-compute would bring up
+  **four** B2s VMs at once, so the same wall would hit all of them, not one.
+  **Check capacity first, before the apply** (same check used for B1s that night):
+  `az vm list-skus --location eastus --resource-type virtualMachines --query "[?name=='Standard_B2s'].restrictions" -o json`
+  (an empty `[]` means available). If restricted, override with an available
+  small SKU - e.g.
+  `-var vm_size=Standard_F2als_v7 -var scan01_vm_size=Standard_F2als_v7` - and
+  consider updating the defaults, as was done for the connector.
 - **`AzureMonitorWindowsAgent` extension `type_handler_version`** in
   `20-compute/main.tf` is set to `"1.0"` with `auto_upgrade_minor_version =
   true`, which should self-correct, but confirm the major version is still
