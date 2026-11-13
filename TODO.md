@@ -23,3 +23,15 @@ Per-category checklist (details + what each should show are in
 
 Sanitise before committing: no live secrets/tokens/keys, real subscription/tenant
 IDs, or personal emails in any image.
+
+## Minor doc cleanup (deferred — not worth a PR on their own)
+
+Low-priority consistency fixes noted during the 2026-11-13 repo audit; roll them
+into the next doc PR that touches these files:
+
+- [ ] `Makefile` — `STACKS` omits `30-identity`; reconcile or add a comment
+      explaining why (identity is applied separately).
+- [ ] `README.md` — the `evidence/` line in "Repo layout" predates the
+      `evidence/screenshots/` substructure; mention it.
+- [ ] `coverage.md` — "Report location: `evidence/`" could point at
+      `evidence/screenshots/04-attack-chain` + `05-vuln-scanning`.
