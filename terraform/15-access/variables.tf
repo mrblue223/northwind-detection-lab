@@ -27,8 +27,15 @@ variable "enable_redteam_resource" {
 }
 
 variable "connector_vm_size" {
-  type    = string
-  default = "Standard_B1s" # cheapest size that reliably runs the connector
+  type = string
+  # NOT the cheaper burstable Standard_B1s: the B-series is frequently
+  # capacity-restricted in eastus (apply fails at VM create with 409
+  # SkuNotAvailable / "Capacity Restrictions"), so B1s cannot be relied on to
+  # deploy there. This is an AVAILABILITY choice, not a cost one - F1als_v7
+  # (1 vCPU / 2 GB) is marginally pricier but actually provisions. Revisit if
+  # B-series capacity frees up, or when deploying to a region where B1s is
+  # reliably available.
+  default = "Standard_F1als_v7"
 }
 
 variable "admin_username" {
