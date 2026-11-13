@@ -101,14 +101,18 @@ resource "azurerm_linux_virtual_machine" "connector" {
 # ---------------------------------------------------------------------------
 # Groups
 # ---------------------------------------------------------------------------
+# Groups are created empty and populated via Twingate console invite, not
+# Terraform. The ~> 3.0 provider's twingate_group has no `users` argument (that
+# was the bug); membership would be `user_ids`. is_authoritative = false keeps
+# Terraform from stripping console-invited members on each apply.
 resource "twingate_group" "admins" {
-  name  = "${var.project}-admins"
-  users = [] # populated by twingate_group_users below or via console invite
+  name             = "${var.project}-admins"
+  is_authoritative = false
 }
 
 resource "twingate_group" "redteam" {
-  name  = "${var.project}-redteam"
-  users = []
+  name             = "${var.project}-redteam"
+  is_authoritative = false
 }
 
 # ---------------------------------------------------------------------------
