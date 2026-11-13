@@ -17,7 +17,7 @@ applied rather than suppressed:
   on the backend block and every `terraform_remote_state` data source across all
   stacks, and `shared_access_key_enabled = false` on the storage account
   (CKV2_AZURE_40). **Operator/CI prerequisite**: the principal running Terraform
-  needs the **Storage Blob Data Contributor** role on the `stnorthwindtfstate`
+  needs the **Storage Blob Data Contributor** role on the `stnwdental1127`
   account (RBAC), not just a management-plane role - set this up alongside the
   Azure OIDC federation. `terraform init` will fail to read state without it.
 - **Key Vault secrets carry a 1-year expiry** via a `time_offset` resource
@@ -128,10 +128,11 @@ to map 1:1 - several interfaces changed):
 - **Unused declarations** (dead code, `terraform_unused_declarations`):
   - `15-access`: `admin_user_emails` / `redteam_user_emails` were declared (and
     present in the tfvars example) but never consumed - the Twingate groups are
-    created with `users = []` and populated via console invite. Removed both
-    variables and their tfvars.example lines. If group membership is later
-    driven from Terraform, reintroduce them wired to a `twingate_users` data
-    source feeding `twingate_group.users`.
+    created empty and populated via console invite (`is_authoritative = false`;
+    see the Twingate schema note below). Removed both variables and their
+    tfvars.example lines. If group membership is later driven from Terraform,
+    reintroduce them wired to a `twingate_users` data source feeding
+    `twingate_group.user_ids`.
   - `40-sentinel`: the `detection_files = fileset(...)` local was superseded by
     the explicit `detections` map (which carries the per-rule name/severity/
     tactics/techniques metadata and is what the analytics-rule resource
@@ -156,22 +157,51 @@ to map 1:1 - several interfaces changed):
   (verified with `python-hcl2`, a syntax-only check - no provider schemas
   or semantic validation, since that requires `terraform init` against
   real credentials).
-- **Twingate provider schema**: confirmed against current docs that the
-  3.x-series syntax used in `15-access/main.tf` (`access_group { group_id }`,
-  `protocols { tcp { policy, ports } }`) is correct. Twingate's v4 provider
-  introduced breaking changes (plural `access_groups`, `is_authoritative`);
-  the version constraint is pinned to `~> 3.0` deliberately - see the
-  comment in `15-access/providers.tf`. Do not bump the Twingate provider
-  version without rewriting `main.tf` to match v4's schema.
+- **Twingate provider schema** (CORRECTED - verified by a real deploy, see
+  SESSION_STATUS.md and PR #6): an earlier version of this note claimed the
+  `~> 3.0` block syntax `protocols { tcp { ... } }` was "confirmed correct." It
+  is **not**. Verified against the real provider schema and a live deploy:
+  - `protocols` is a nested **attribute**, not a block:
+    `protocols = { allow_icmp = ..., tcp = { policy, ports }, udp = { ... } }`.
+    All 5 `twingate_resource` blocks were converted in PR #6.
+  - `twingate_group` has **no `users` argument** - it's `user_ids`. The groups
+    are created empty and console-populated, so `users = []` was removed and
+    `is_authoritative = false` set instead (PR #6).
+  - `access_group { group_id = ... }` **is** a block and is correct (confirmed
+    directly against the schema - `nesting_mode: set`).
+  The constraint stays pinned to `~> 3.0` (v4 is a larger rewrite - plural
+  `access_groups` etc.); do not bump it without re-checking `main.tf` against
+  the new schema.
+
+## Verified against real Azure / Twingate
+
+- **`00-foundation`, `10-network`, `15-access`** have each been `terraform init`
+  / `plan` / `apply`-ed against **real Azure** (and, for 15-access, the **real
+  Twingate API**), then destroyed:
+  - `00-foundation` - first deploy + a from-scratch redeploy (2026-11-12). The
+    keyless-storage bootstrap (`storage_use_azuread` + the Storage Blob Data
+    Contributor grant + `migrate-state`) is proven; see the bootstrap section
+    above.
+  - `10-network` - deployed and destroyed cleanly (2026-11-13): 8 resources
+    (VNet, mgmt/corp subnets, NSGs, scanner rule).
+  - `15-access` - deployed and the **Twingate connector verified "Connected"**
+    end-to-end (Controller + Relay green) on 2026-11-13, after the schema fixes
+    in PR #6 (see the Twingate schema note above). The `connector_vm_size`
+    default is now `Standard_F1als_v7` (the B-series was capacity-restricted in
+    eastus). Then destroyed.
+- **GitHub Action SHAs** in `.github/workflows/*.yml` are pinned to real release
+  commits (PR #1) and CI runs green on every PR - no longer placeholders.
+- **Ansible `win_domain*` -> `microsoft.ad` migration** is done, and
+  `ansible-lint` passes against a real Ansible + the pinned collections in CI
+  (`ansible/requirements.yml`). This is lint/syntax verification only - the
+  playbook has **not** been run against real Windows hosts yet (see below).
 
 ## Not yet verified - do this before `terraform apply`
 
-- **`terraform init` / `terraform validate`** against real provider
-  registries and real Azure/Twingate credentials. Syntax-clean HCL can
-  still fail schema validation, and this repo hasn't had that check run.
-- **GitHub Action SHAs** in `.github/workflows/*.yml` are illustrative
-  placeholders, flagged inline where they appear. Resolve each to a real
-  release commit before the workflows will run at all.
+- **`terraform validate` / a real apply for the untested stacks**: `05-policy`,
+  `20-compute`, `30-identity`, and `40-sentinel` have not been
+  init/plan/applied against real credentials. Syntax-clean HCL can still fail
+  schema validation (exactly how the Twingate schema bugs in 15-access surfaced).
 - **Azure Policy built-in display names** in `terraform/05-policy/main.tf`
   (`"Network interfaces should not have public IPs"`, `"Require a tag on
   resources"`, `"Allowed locations"`) - confirm these exact names still
@@ -184,15 +214,12 @@ to map 1:1 - several interfaces changed):
 - **`azuread_user` resource arguments** in `30-identity/main.tf`
   (`force_password_change`, `department`, `job_title`) - written against
   the `hashicorp/azuread` ~> 2.53 schema from documentation knowledge, not
-  independently re-verified the way the Twingate schema was. Run
-  `terraform plan` early and address any argument-naming errors before
-  assuming the rest of the stack is correct.
-- **Ansible Windows collection module names** (`ansible.windows.*`,
-  `community.windows.win_unzip`, `community.general.read_csv`) - install
-  the collections (`ansible-galaxy collection install ansible.windows
-  community.windows community.general`) and run `ansible-playbook
-  --syntax-check site.yml` before a real run; this hasn't been executed
-  against a real Ansible installation.
+  independently re-verified. Run `terraform plan` early and address any
+  argument-naming errors before assuming the rest of the stack is correct.
+- **Ansible playbook against real Windows hosts**: the roles lint clean, but
+  `ansible-playbook site.yml` has never been run against actual DC01/WS01/FS01 -
+  module behaviour, WinRM, and collection versions can still surprise you. Run
+  `ansible-playbook --syntax-check site.yml` and a dry run first.
 
 ## New in this round - not yet verified
 
