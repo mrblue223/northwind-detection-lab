@@ -1,0 +1,24 @@
+flowchart LR
+  op["Operator"]:::actor
+  ci["GitHub Actions"]:::actor
+
+  subgraph ZT["Twingate ZTNA"]
+    conn["Connector"]:::infra
+  end
+  subgraph CORP["corp subnet · AD"]
+    hosts["DC01 · WS01 · FS01"]:::infra
+  end
+  arm["Azure ARM"]:::infra
+  blob[("tfstate storage")]:::store
+
+  op ==>|"ZTNA policy"| conn
+  conn ==>|"RDP / WinRM"| hosts
+  ci ==>|"OIDC federated cred"| arm
+  arm -->|"provisions"| CORP
+  ci ==>|"AAD token"| blob
+
+  classDef actor fill:#e7f0ff,stroke:#1c4ed8;
+  classDef infra fill:#f8f9fa,stroke:#495057;
+  classDef store fill:#fff1e0,stroke:#d9480f;
+  linkStyle 0,1 stroke:#2f9e44,stroke-width:2px;
+  linkStyle 2,3,4 stroke:#1c4ed8,stroke-width:2px;
