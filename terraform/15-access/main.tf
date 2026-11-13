@@ -123,13 +123,13 @@ resource "twingate_resource" "dc01_admin" {
   address           = "10.10.2.10"
   remote_network_id = twingate_remote_network.lab.id
 
-  protocols {
+  protocols = {
     allow_icmp = false
-    tcp {
+    tcp = {
       policy = "RESTRICTED"
       ports  = ["3389", "5985-5986"]
     }
-    udp {
+    udp = {
       policy = "DENY_ALL"
     }
   }
@@ -144,13 +144,13 @@ resource "twingate_resource" "ws01_admin" {
   address           = "10.10.2.11"
   remote_network_id = twingate_remote_network.lab.id
 
-  protocols {
+  protocols = {
     allow_icmp = false
-    tcp {
+    tcp = {
       policy = "RESTRICTED"
       ports  = ["3389", "5985-5986"]
     }
-    udp {
+    udp = {
       policy = "DENY_ALL"
     }
   }
@@ -165,13 +165,13 @@ resource "twingate_resource" "scan01_admin" {
   address           = "10.10.1.11"
   remote_network_id = twingate_remote_network.lab.id
 
-  protocols {
+  protocols = {
     allow_icmp = true
-    tcp {
+    tcp = {
       policy = "RESTRICTED"
       ports  = ["22"]
     }
-    udp {
+    udp = {
       policy = "DENY_ALL"
     }
   }
@@ -186,13 +186,13 @@ resource "twingate_resource" "fs01_admin" {
   address           = "10.10.2.12"
   remote_network_id = twingate_remote_network.lab.id
 
-  protocols {
+  protocols = {
     allow_icmp = false
-    tcp {
+    tcp = {
       policy = "RESTRICTED"
       ports  = ["445", "3389", "5985-5986"]
     }
-    udp {
+    udp = {
       policy = "DENY_ALL"
     }
   }
@@ -213,12 +213,12 @@ resource "twingate_resource" "corp_redteam" {
   address           = "10.10.2.0/24"
   remote_network_id = twingate_remote_network.lab.id
 
-  protocols {
+  protocols = {
     allow_icmp = true
-    tcp {
+    tcp = {
       policy = "ALLOW_ALL"
     }
-    udp {
+    udp = {
       policy = "ALLOW_ALL"
     }
   }
