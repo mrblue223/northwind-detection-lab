@@ -46,88 +46,23 @@ coverage.md        # what was detected, missed, and why
 
 ## Architecture
 
-Reflects what the Terraform actually defines (`00-foundation`, `10-network`,
-`15-access`, `20-compute`, `40-sentinel`). All inbound access is through Twingate
-ZTNA — **there are no public IPs and no internet-facing endpoints anywhere.**
+![Architecture diagram](docs/architecture.png)
 
-```mermaid
-flowchart TB
-    operator["Operator laptop<br/>Twingate client"]:::ext
-    gha["GitHub Actions<br/>OIDC · no stored creds"]:::ext
+Grounded in the current Terraform (`00-foundation` … `40-sentinel`). **No public
+IPs and no internet-facing endpoints anywhere** — all inbound access is Twingate
+ZTNA (operator) or the Azure control plane (CI/CD).
 
-    subgraph AZURE["Azure subscription · no public inbound anywhere"]
-      direction TB
-      nopub["No public IPs / no internet-facing endpoints —<br/>every inbound path is Twingate ZTNA or the Azure control plane"]:::note
+| Access path | Colour | What it is |
+|---|---|---|
+| Admin | green | Operator → Twingate Connector → corp hosts (RDP / WinRM) |
+| SCAN01 → corp | orange | Permanent, narrow: SCAN01 `10.10.1.11/32` → corp on scan ports |
+| CI/CD | blue | GitHub Actions → OIDC → Azure ARM; AAD token → tfstate storage |
+| Telemetry | grey dotted | Azure Monitor Agent on the VMs → Log Analytics / Sentinel (`law-northwind-lab`) |
 
-      subgraph RGSTATE["rg-northwind-tfstate · locked (CanNotDelete)"]
-        tfstate[("stnwdental1127<br/>tfstate storage · keyless / AAD")]:::store
-      end
-
-      subgraph RGLAB["rg-northwind-lab · safe-to-destroy"]
-        direction TB
-        kv["kv-northwind-lab<br/>SSH keys · domain-admin pw"]:::vault
-        law["law-northwind-lab<br/>Log Analytics / Sentinel"]:::mon
-
-        subgraph VNET["vnet-northwind-lab · 10.10.0.0/16"]
-          direction TB
-          subgraph MGMT["snet-mgmt · 10.10.1.0/24 · nsg-mgmt"]
-            conn["Twingate Connector<br/>vm-tg-connector · .10 · SSH-key"]:::infra
-            scan["SCAN01 · Nessus<br/>.11"]:::infra
-          end
-          subgraph CORP["snet-corp · 10.10.2.0/24 · nsg-corp (deny internet; corp-internal only)"]
-            dc01["DC01 · .10"]:::infra
-            ws01["WS01 · .11"]:::infra
-            fs01["FS01 · .12"]:::infra
-          end
-        end
-      end
-    end
-
-    subgraph LEGEND["Access-path legend"]
-      direction LR
-      lg1["admin — solid green"]:::lgadmin
-      lg2["red-team — dashed red, OFF by default"]:::lgred
-      lg3["SCAN01 to corp — permanent, narrow (orange)"]:::lgscan
-      lg4["CI/CD OIDC to Azure — blue"]:::lgci
-    end
-
-    operator -->|"Twingate ZTNA policy"| conn
-    conn ==>|"RDP / WinRM"| dc01
-    conn ==>|"RDP / WinRM"| ws01
-    conn ==>|"SMB / RDP / WinRM"| fs01
-    scan -->|"scan ports · /32-scoped, permanent"| CORP
-    conn -.->|"red-team CIDR · OFF by default"| CORP
-    gha ==>|"OIDC federated credential → ARM"| AZURE
-    gha -->|"Terraform state · AAD token"| tfstate
-    conn --> law
-    scan --> law
-    dc01 --> law
-    ws01 --> law
-    fs01 --> law
-
-    classDef ext fill:#e7f0ff,stroke:#1c4ed8;
-    classDef store fill:#fff1e0,stroke:#d9480f;
-    classDef vault fill:#f3e8ff,stroke:#6741d9;
-    classDef mon fill:#e6fcf5,stroke:#0ca678;
-    classDef infra fill:#f8f9fa,stroke:#495057;
-    classDef note fill:#fff9db,stroke:#f08c00;
-    classDef lgadmin fill:#ebfbee,stroke:#2f9e44;
-    classDef lgred fill:#fff5f5,stroke:#e03131;
-    classDef lgscan fill:#fff4e6,stroke:#e8590c;
-    classDef lgci fill:#edf2ff,stroke:#1c4ed8;
-
-    linkStyle 0,1,2,3 stroke:#2f9e44,stroke-width:2px;
-    linkStyle 4 stroke:#e8590c,stroke-width:2px;
-    linkStyle 5 stroke:#e03131,stroke-width:2px,stroke-dasharray:6 4;
-    linkStyle 6,7 stroke:#1c4ed8,stroke-width:2px;
-    linkStyle 8,9,10,11,12 stroke:#adb5bd,stroke-width:1px,stroke-dasharray:2 3;
-```
-
-Telemetry (grey dotted) is the Azure Monitor Agent on every VM shipping to the
-Log Analytics workspace / Sentinel. The red-team path and its NSG counterpart in
-`10-network` both default to **off** (`enable_redteam_resource` /
-`enable_redteam_access`). A full data-flow / trust-boundary view (including the
-attack chain) is in [`grc/data-flow-diagram.md`](grc/data-flow-diagram.md).
+Diagram source: [`docs/architecture.mmd`](docs/architecture.mmd) — regenerate with
+`mmdc -i docs/architecture.mmd -o docs/architecture.png -s 3`. VM sizes: connector
+`Standard_F1als_v7`; DC01/WS01/FS01 and SCAN01 `Standard_B2s`. A trust-boundary
+data-flow view is in [`grc/data-flow-diagram.md`](grc/data-flow-diagram.md).
 
 ## CI/CD and GRC
 
