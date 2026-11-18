@@ -33,7 +33,7 @@
     sam_account_name: "{{ item.samaccountname }}"
     firstname: "{{ item.first_name }}"
     surname: "{{ item.last_name }}"
-    company: "Northwind Dental"
+    company: "Northwind General Hospital"
     description: "{{ item.title }}"
     path: "OU={{ item.ou }},DC=northwind,DC=local"
     password: "ChangeMe!{{ 1000 | random }}"

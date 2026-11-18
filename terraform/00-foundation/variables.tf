@@ -24,5 +24,5 @@ variable "budget_alert_emails" {
 variable "tfstate_storage_account_name" {
   description = "Globally unique name for the Terraform state storage account"
   type        = string
-  default     = "stnwdental1127" # Northwind Dental-themed; must be globally unique (adjust the numeric suffix if taken)
+  default     = "stnwdental1127" # Northwind-themed; the 'nwdental' suffix is retained as it is the deployed account name - do not change
 }
