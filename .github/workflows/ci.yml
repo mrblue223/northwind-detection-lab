@@ -98,6 +98,15 @@ jobs:
       - name: Run ansible-lint
         run: ansible-lint ansible/
 
+  # ┌──────────────────────────────────────────────────────────────────────────┐
+  # │ KNOWN, TRACKED GAP — Azure OIDC is not configured yet (see TODO.md).        │
+  # │ The AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_SUBSCRIPTION_ID repo secrets  │
+  # │ do not exist. This job does NOT fail because of that — the "Check for       │
+  # │ Azure OIDC configuration" step below detects the missing secret and         │
+  # │ SKIPS azure/login + the plan (the job goes green having done nothing).      │
+  # │ Once OIDC is set up in a dedicated session, it starts planning for real.    │
+  # │ This is a deliberate, documented state, not a bug.                          │
+  # └──────────────────────────────────────────────────────────────────────────┘
   terraform-plan:
     name: Terraform plan (PR comment only, no apply)
     runs-on: ubuntu-latest

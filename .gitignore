@@ -6,6 +6,9 @@
 !*.tfvars.example
 crash.log
 crash.*.log
+# Saved plan files — can embed sensitive values (e.g. generated secrets); never commit.
+tfplan
+*.tfplan
 
 # Ansible
 *.retry
