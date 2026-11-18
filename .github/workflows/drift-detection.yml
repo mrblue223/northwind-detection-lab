@@ -1,12 +1,27 @@
 # Catches the failure mode CI/CD structurally cannot: someone (including you,
 # via the portal, in a hurry) changes live infra out-of-band. A clean PR
 # pipeline says nothing about whether reality still matches code - this job
-# is what actually checks that, on a schedule, independent of any commit.
+# is what actually checks that, independent of any commit.
+#
+# ┌────────────────────────────────────────────────────────────────────────────┐
+# │ KNOWN, TRACKED GAP — Azure OIDC is not configured yet (see TODO.md).          │
+# │ This workflow authenticates with azure/login using AZURE_CLIENT_ID /          │
+# │ AZURE_TENANT_ID / AZURE_SUBSCRIPTION_ID, and those repo secrets do not        │
+# │ exist. Until they do, every run fails at the azure/login step in ~25s and     │
+# │ never reaches `terraform plan` — so it detects nothing.                       │
+# │                                                                               │
+# │ The daily `schedule:` trigger is DISABLED for now (commented out below) so    │
+# │ it stops producing a red "failure" every single day for a gap we already      │
+# │ know about — a daily known-false alarm trains you to ignore CI failures,      │
+# │ which is exactly the habit this repo should not build. It stays available     │
+# │ via workflow_dispatch (manual) for testing. RE-ENABLE the schedule in the     │
+# │ same PR that configures Azure OIDC, so drift detection actually runs.         │
+# └────────────────────────────────────────────────────────────────────────────┘
 name: Drift Detection
 
 on:
-  schedule:
-    - cron: "0 13 * * *" # daily, 13:00 UTC - adjust to when you're likely to be online to react
+  # schedule:
+  #   - cron: "0 13 * * *" # daily, 13:00 UTC — RE-ENABLE once Azure OIDC exists (see TODO.md)
   workflow_dispatch: {}
 
 permissions:
