@@ -19,7 +19,7 @@
 - name: Ensure a standard (non-admin) domain user is set as the regular logon account
   ansible.windows.win_shell: |
     Add-LocalGroupMember -Group "Remote Desktop Users" -Member "NORTHWIND\lchen" -ErrorAction SilentlyContinue
-  # lchen (Lisa Chen, Dental Hygienist) plays the phishing victim - picked
+  # lchen (Lisa Chen, Registered Nurse) plays the phishing victim - picked
   # because she's an ordinary user with no elevated rights, which is the
   # realistic case for a phishing target.
 

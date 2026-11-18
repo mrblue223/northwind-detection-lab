@@ -1,4 +1,4 @@
-# Northwind Dental — Detection Engineering Lab: Final Project Plan
+# Northwind General Hospital — Detection Engineering Lab: Final Project Plan
 
 A 25-user fake company built entirely as code in Azure (AD + Entra ID),
 reached only through Twingate ZTNA, attacked via a simulated phishing chain,
